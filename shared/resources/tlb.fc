@@ -1,0 +1,26 @@
+#pragma version >=0.4.0;
+#include "stdlib.fc";
+
+(int) tlb::add_r1(int y, int z) inline {
+    int x = z - y;
+    ;; throw_unless(0x1, (z >= y) & (x >= 0));
+    return x;
+}
+
+(int) tlb::get_size_by_skip(slice cs, ((slice) -> slice) skip) {
+    int before = cs.slice_bits();
+    slice new_slice = skip(cs);
+    int after = new_slice.slice_bits();
+    return before - after;
+}
+
+(slice) tlb::skip(slice cs, ((slice) -> int) get_size) inline {
+    int size = get_size(cs);
+    return cs.skip_bits(size);
+}
+
+(slice, slice) tlb::load(slice cs, ((slice) -> int) get_size) inline {
+    return cs.load_bits(get_size(cs));
+}
+
+(slice, int) slice_begins_with(slice cs, slice prefix) asm "SDBEGINSXQ";
