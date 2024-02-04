@@ -1,146 +1,119 @@
 package org.ton.tlb.compiler
 
-import org.ton.tlb.BinTrie
+import me.alllex.parsus.token.EofToken.name
 import org.ton.tlb.BitPfxCollection
-import org.ton.tlb.ConstructorTag
 import org.ton.tlb.MinMaxSize
+import org.ton.tlb.compiler.TlbTypeExpression.Type.isAnon
+import org.ton.tlb.compiler.exceptions.CantApplyNonNatTypeException
 import org.ton.tlb.compiler.exceptions.ConstructorTypeLowerCaseException
+import org.ton.tlb.compiler.exceptions.TypeAlreadyDefinedException
+import org.ton.tlb.compiler.exceptions.UndefinedTypeException
 import org.ton.tlb.parser.AST
-import kotlin.math.min
 
 public class TlbCompiler {
 
     public val types: MutableMap<String, TlbType> = mutableMapOf()
 
-    public fun compileConstructor(astConstructor: AST.Constructor): TlbType {
-
-        val fields = astConstructor.fields.map { astField ->
-            val fieldSize = if (!astField.isImplicit && !astField.isConstraint) {
-                expressionComputeSize(astField.typeExpression)
-            } else {
-                MinMaxSize.fixedSize(0)
-            }
-            TlbField(
-                ast = astField,
-                type = expressionAppliedType(astField.typeExpression),
-                size = fieldSize
-            )
+    public fun compileConstructor(ast: AST.Constructor): TlbType {
+        var fields = ArrayList<TlbField>()
+        ast.fields.forEach {
+            fields.add(compileField(it, fields))
         }
         val constructor = TlbConstructor(
-            ast = astConstructor,
+            tag = ast.tag,
+            name = ast.name,
+            typeName = ast.typeName,
             fields = fields,
-            size = computeConstructorSize(astConstructor.tag?.size ?: MinMaxSize.fixedSize(0), fields),
-            beginWith = computeConstructorBeginsWith(astConstructor.tag, fields)
         )
-
-        var type = getType(astConstructor.typeName) ?: registerNewType(astConstructor.typeName, constructor.size)
-        val constructors = type.constructors + constructor
-        val constructorTrie = constructors.computeConstructorTrie()
-        type = type.copy(
-            size = type.size or constructor.size,
-            constructors = constructors,
-            constructorTrie = constructorTrie,
-            beginsWith = computeBeginWith(constructors),
-        )
-
-        types[type.name] = type
+        var type = getType(ast.typeName) ?: registerNewType(ast.typeName)
+        type += constructor
 
         return type
     }
 
-    private fun computeConstructorSize(
-        tagSize: MinMaxSize,
-        fields: Iterable<TlbField>
-    ): MinMaxSize {
-        var size = tagSize
-        for (field in fields) {
-            field.size?.let {
-                size += it
+    private fun compileAnonConstructor(ast: AST.TypeExpression.AnonymousConstructor): TlbType {
+        var fields = ArrayList<TlbField>()
+        ast.fields.forEach {
+            fields.add(compileField(it, fields))
+        }
+        val constructor = TlbConstructor(
+            tag = null,
+            name = "",
+            typeName = "",
+            fields = fields,
+        )
+        return TlbType("", false, isAnon, constructors = listOf(constructor))
+    }
+
+    public fun compileField(ast: AST.Field, definedFields: List<TlbField>): TlbField {
+        return TlbField(
+            name = ast.name ?: "",
+            type = compileTypeExpression(ast.typeExpression, definedFields),
+            isImplicit = ast.isImplicit,
+            isConstraint = ast.isConstraint
+        )
+    }
+
+    public fun compileTypeExpression(ast: AST.TypeExpression, definedFields: List<TlbField>): TlbTypeExpression {
+        return when (ast) {
+            is AST.TypeExpression.AnonymousConstructor -> {
+                val type = compileAnonConstructor(ast)
+                return TlbTypeExpression.Apply(type)
+            }
+            is AST.TypeExpression.Apply -> {
+                val apply = (compileTypeExpression(ast.expression, definedFields) as? TlbTypeExpression.Apply)
+                    ?: throw UndefinedTypeException(ast.expression.toString())
+                return apply.copy(arguments = ast.arguments.map { compileTypeExpression(it, definedFields) })
+            }
+
+            is AST.TypeExpression.CellRef -> TlbTypeExpression.CellRef(
+                compileTypeExpression(
+                    ast.expression,
+                    definedFields
+                )
+            )
+
+            is AST.TypeExpression.Conditional -> TlbTypeExpression.Conditional(
+                compileTypeExpression(ast.expression, definedFields) as? TlbNatTypeExpression
+                    ?: throw CantApplyNonNatTypeException(),
+                compileTypeExpression(ast.expression2, definedFields),
+            )
+
+            is AST.TypeExpression.Add -> TlbTypeExpression.Add(
+                compileTypeExpression(ast.expression, definedFields),
+                compileTypeExpression(ast.expression2, definedFields)
+            )
+            is AST.TypeExpression.GetBit -> TlbTypeExpression.GetBit(
+                compileTypeExpression(ast.expression, definedFields),
+                compileTypeExpression(ast.expression2, definedFields)
+            )
+            is AST.TypeExpression.IntConstant -> TlbTypeExpression.IntConstant(ast.value)
+            is AST.TypeExpression.Multiply -> TlbTypeExpression.Multiply(
+                compileTypeExpression(ast.value, definedFields) as? TlbNatTypeExpression
+                    ?: throw CantApplyNonNatTypeException(),
+                compileTypeExpression(ast.expression, definedFields)
+            )
+            is AST.TypeExpression.Tuple -> TlbTypeExpression.Tuple(
+                compileTypeExpression(ast.value, definedFields) as? TlbNatTypeExpression
+                    ?: throw CantApplyNonNatTypeException(),
+                compileTypeExpression(ast.expression, definedFields)
+            )
+            is AST.TypeExpression.TypeApply -> {
+                val typeDef = getType(ast.name)
+                if (typeDef != null) {
+                    check(!ast.isNegated) {
+                        "Can't negate a type"
+                    }
+                    return TlbTypeExpression.Apply(typeDef)
+                }
+                val fieldDef = definedFields.find { it.name == ast.name }
+                if (fieldDef != null) {
+                    return TlbTypeExpression.Param(ast.name, ast.isNegated)
+                }
+                val type = registerNewType(ast.name)
+                return TlbTypeExpression.Apply(type)
             }
         }
-        return size
-    }
-
-    private fun computeConstructorBeginsWith(tag: ConstructorTag?, fields: Iterable<TlbField>): BitPfxCollection {
-        val tagValue = tag?.value ?: 0
-        var result = BitPfxCollection()
-        for (field in fields) {
-            if (!field.isImplicit && !field.isConstraint) {
-                if (field.typeExpression is AST.TypeExpression.CellRef) {
-                    continue
-                }
-                if (field.typeExpression !is AST.TypeExpression.Apply) {
-                    break
-                }
-                val appliedType = requireNotNull(expressionAppliedType(field.typeExpression))
-                val typeBeginWith = appliedType.beginsWith
-                val add = typeBeginWith * tagValue
-                result += add
-                return result
-            }
-        }
-        return BitPfxCollection(tagValue)
-    }
-
-    private fun computeBeginWith(constructors: Iterable<TlbConstructor>): BitPfxCollection {
-        var result = BitPfxCollection()
-        for (constructor in constructors) {
-            result += constructor.beginWith
-        }
-        return result
-    }
-
-
-    private fun Iterable<TlbConstructor>.computeConstructorTrie(): BinTrie? {
-        var z = 1L
-        var trie: BinTrie? = null
-        for (constructor in this) {
-            trie = BinTrie.insertPaths(trie, constructor.beginWith, z)
-            z = z shl 1
-        }
-        return trie
-    }
-
-    public fun expressionAppliedType(expression: AST.TypeExpression): TlbType = when (expression) {
-        is AST.TypeExpression.Param -> getType(expression.name)
-        is AST.TypeExpression.Apply -> expressionAppliedType(expression)
-        else -> null
-    } ?: error("Unknown type: $expression")
-
-    public fun expressionComputeSize(expression: AST.TypeExpression): MinMaxSize = when (expression) {
-        is AST.TypeExpression.Param -> expressionAppliedType(expression).size
-        is AST.TypeExpression.CellRef -> {
-            val f = expressionComputeSize(expression.expression).isPossible()
-            if (f) MinMaxSize.ONE_REF else MinMaxSize.IMPOSSIBLE
-        }
-
-        is AST.TypeExpression.Apply -> {
-            // TODO: fix ast param as type
-            val type = expressionAppliedType(expression)
-
-            val n = (expression.arguments.firstOrNull() as? AST.TypeExpression.IntConstant)?.value
-
-            if (n != null) {
-                when (type.name) {
-                    NAT_WIDTH_TYPE.name, INT_TYPE.name, UINT_TYPE.name, BITS_TYPE.name ->
-                        MinMaxSize.fixedSize(min(n, 2047))
-
-                    NAT_LEQ_TYPE.name -> MinMaxSize.fixedSize(32 - n.countLeadingZeroBits())
-                    NAT_LESS_TYPE.name -> MinMaxSize.fixedSize(if (n != 0) 32 - (n - 1).countLeadingZeroBits() else 2047)
-                    else -> type.size
-                }
-            } else {
-                type.size
-            }
-        }
-
-        is AST.TypeExpression.Conditional -> TODO()
-        is AST.TypeExpression.Add -> TODO()
-        is AST.TypeExpression.AnonymousConstructor -> TODO()
-        is AST.TypeExpression.GetBit -> TODO()
-        is AST.TypeExpression.IntConstant -> TODO()
-        is AST.TypeExpression.Multiply -> TODO()
-        is AST.TypeExpression.Tuple -> TODO()
     }
 
     public fun getType(name: String?): TlbType? {
@@ -148,9 +121,9 @@ public class TlbCompiler {
         return types[name] ?: getBuiltInType(name)
     }
 
-    public fun registerNewType(name: String, size: MinMaxSize): TlbType {
+    public fun registerNewType(name: String): TlbType {
         validateNewType(name)
-        val type = TlbType(name, false, size = size)
+        val type = TlbType(name, false)
         types[name] = type
         return type
     }
@@ -160,10 +133,14 @@ public class TlbCompiler {
         if (name[0].isLowerCase()) {
             throw ConstructorTypeLowerCaseException(name)
         }
+        if (types.containsKey(name)) {
+            throw TypeAlreadyDefinedException(name)
+        }
     }
 
     public companion object {
         private val builtinTypes = mutableMapOf<String, TlbType>()
+        public val TYPE_TYPE: TlbType = TlbType("Type", false)
         public val NAT_TYPE: TlbType = defineBuiltinType("#", "", true, 32, 32, true)
         public val NAT_WIDTH_TYPE: TlbType = defineBuiltinType("##", "#", true, 32, 0, true)
         public val NAT_LESS_TYPE: TlbType = defineBuiltinType("#<", "#", true, 32, 0)
@@ -207,13 +184,13 @@ public class TlbCompiler {
                 minSize >= 0 && minSize != size -> MinMaxSize.range(minSize, size)
                 else -> MinMaxSize.fixedSize(size)
             }
-            val isPositive = args != "#"
+//            val isPositive = args != "#"
 
             val type = TlbType(
                 name = name,
                 producesNatural = producesNatural,
                 isNatural = false,
-                isPositive = false,
+//                isPositive = false,
                 isAnyBits = anyBits,
                 intSign = isInt,
                 size = minMaxSize,
@@ -223,11 +200,13 @@ public class TlbCompiler {
                         name = "#",
                         producesNatural = false,
                         isNatural = isNatural,
-                        isPositive = isPositive,
-                        beginsWith = BitPfxCollection.all()
+//                        isPositive = isPositive,
+                        beginsWith = BitPfxCollection.all(),
+                        isFinal = true
                     )
                 },
-                beginsWith = BitPfxCollection.all()
+                beginsWith = BitPfxCollection.all(),
+                isFinal = true
             )
             builtinTypes[name] = type
             return type

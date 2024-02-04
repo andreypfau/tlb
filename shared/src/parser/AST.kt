@@ -71,9 +71,9 @@ public sealed interface AST {
     public sealed interface TypeExpression : AST {
         public sealed interface NaturalTypExpression : TypeExpression
 
-        public data class Param(
+        public data class TypeApply(
             val name: String,
-            val isNegated: Boolean = false
+            val isNegated: Boolean = false,
         ) : TypeExpression {
             override fun toString(): String = buildString {
                 if (isNegated) {
@@ -178,7 +178,5 @@ public sealed interface AST {
                 append(" ]")
             }
         }
-
-
     }
 }

@@ -83,7 +83,7 @@ public class TlbGrammar : Grammar<List<AST.Constructor>>() {
         val negate = poll(tilda) != null
         val name = identifier()
 
-        AST.TypeExpression.Param(name, negate)
+        AST.TypeExpression.TypeApply(name, negate)
     }
 
     // E [ . E ]
@@ -145,7 +145,8 @@ public class TlbGrammar : Grammar<List<AST.Constructor>>() {
         val expr = expr20()
         val op = poll(compareOp) ?: return@parser expr
         val expr2 = expr20()
-        AST.TypeExpression.Apply(AST.TypeExpression.Param(op), listOf(expr, expr2))
+        val expr0 = AST.TypeExpression.TypeApply(op)
+        AST.TypeExpression.Apply(expr0, listOf(expr, expr2))
     }
 
     private val expr: Parser<AST.TypeExpression> by expr10
@@ -156,7 +157,7 @@ public class TlbGrammar : Grammar<List<AST.Constructor>>() {
         colon()
         val type = identifier()
         rBrace()
-        AST.Field(name, AST.TypeExpression.Param(type), true)
+        AST.Field(name, AST.TypeExpression.TypeApply(type), true)
     }
 
     private val constraint by -lBrace * expr * -rBrace map {
