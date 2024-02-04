@@ -10,7 +10,7 @@ public data class TlbType(
     public val isNatural: Boolean = false,
     public val isPositive: Boolean = false,
     public val isAnyBits: Boolean = false,
-    public val isInt: Int = 0,
+    public val intSign: Int = 0,
     public val size: MinMaxSize = MinMaxSize.fixedSize(MinMaxSize.MAX_SIZE_CELL),
     public val args: List<TlbType> = emptyList(),
     public val constructorTrie: BinTrie? = null,
@@ -24,6 +24,8 @@ public data class TlbType(
             true
         }
     }
+
+    public val isInt: Boolean get() = intSign != 0
 
     public val isEnum: Boolean = constructors.all {
         it.isEnum

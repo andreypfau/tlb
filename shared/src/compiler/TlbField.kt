@@ -5,8 +5,8 @@ import org.ton.tlb.parser.AST
 
 public class TlbField(
     public val ast: AST.Field,
-    public val type: TlbType?,
-    public val size: MinMaxSize? = null
+    public val type: TlbType,
+    public val size: MinMaxSize
 ) {
     public val name: String? get() = ast.name
     public val typeExpression: AST.TypeExpression get() = ast.typeExpression

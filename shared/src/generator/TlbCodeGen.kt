@@ -73,6 +73,75 @@ public class TlbCodeGen(
         append(";\n}\n")
     }
 
+    public fun generatePack(appendable: Appendable) {
+        tlbType.constructors.forEach { constructor ->
+            generatePack(appendable, constructor)
+            appendable.append("\n")
+        }
+    }
+
+    public fun generatePack(appendable: Appendable, constructor: TlbConstructor) {
+        val explicitFields = constructor.fields.filter { !it.isImplicit }
+
+        appendable.append("builder ")
+        appendable.append(className)
+        appendable.append("::")
+        appendable.append(constructorNames[constructor])
+        appendable.append("::pack(")
+        appendable.append("builder cb")
+
+        if (explicitFields.isNotEmpty()) {
+            appendable.append(", [\n")
+            explicitFields.forEach { field ->
+                if (field.isImplicit) return@forEach
+
+                val funcType = (getFuncType(field) + ",").let {
+                    it + " ".repeat("slice,".length - it.length)
+                }
+                appendable.append("  ").append(funcType).append(" ;; ")
+                appendable.append(field.name).append(" : ").append(field.typeExpression.toString())
+                appendable.append("\n")
+            }
+            appendable.append("] data")
+        }
+        appendable.append(") {\n")
+
+        val fieldIdentScope = IdentScope()
+        val fieldNames = explicitFields.associateWith { field ->
+            fieldIdentScope.registerIdentifier(requireNotNull(field.name) { "explicit field $field has no name" })
+        }
+
+        if (explicitFields.isNotEmpty()) {
+            appendable.append("  var (")
+            explicitFields.forEachIndexed { index, field ->
+                appendable.append(fieldNames[field])
+                if (index != explicitFields.lastIndex) {
+                    appendable.append(", ")
+                }
+            }
+            appendable.append(") = data;\n")
+        }
+        appendable.append("  return cb;\n")
+        appendable.append("}\n")
+    }
+
+    private fun getFuncType(field: TlbField): String {
+        if (field.typeExpression is AST.TypeExpression.CellRef) {
+            return "cell"
+        }
+        if (field.type.isNatural || field.type.isInt) {
+            return "int"
+        }
+        return "slice"
+    }
+
+    private fun generatePackField(constructor: TlbConstructor, field: TlbField) {
+        val type = field.type
+        val size = field.size
+
+
+    }
+
     private fun generateSkipConsMethod(appendable: Appendable, newLine: String, constructor: TlbConstructor) {
         var actions: List<Action> = emptyList()
         for (field in constructor.fields) {
@@ -112,7 +181,7 @@ public class TlbCodeGen(
         if (actions.isEmpty()) {
             appendable.append(newLine).append("return (cs, true);")
         } else {
-            actions.forEach{ action ->
+            actions.forEach { action ->
                 appendable.append(newLine).append(action.toString()).append(";")
             }
             appendable.append(newLine).append("return (cs, true);")
@@ -122,7 +191,7 @@ public class TlbCodeGen(
     private fun canComputeSizeOf(expression: AST.TypeExpression): Boolean {
         val size = compiler.expressionComputeSize(expression)
         if (size.isFixed()) {
-            return size.minSize and 0xFF == 0
+            return size.maxRefs == 0
         }
         return false
     }
@@ -156,22 +225,20 @@ public class TlbCodeGen(
 
     private fun outputExpression(appendable: Appendable, expression: AST.TypeExpression) {
         when (expression) {
+            is AST.TypeExpression.Param,
             is AST.TypeExpression.Apply -> {
-                val type = compiler.expressionAppliedType(expression)
-                if (type != null) {
-                    val code = TlbCodeGen(compiler, type)
-                    appendable.append(code.className)
-                } else {
-                    TODO()
+                val type = try {
+                    compiler.expressionAppliedType(expression)
+                } catch (e: Exception) {
+                    null
                 }
-            }
-            is AST.TypeExpression.Param -> {
-                val type = compiler.expressionAppliedType(expression)
                 if (type != null) {
                     val code = TlbCodeGen(compiler, type)
                     appendable.append(code.className)
+                } else if (expression is AST.TypeExpression.Param) {
+                    appendable.append(expression.name)
                 } else {
-                    TODO()
+                    error("Unknown type: $expression")
                 }
             }
 
@@ -202,10 +269,7 @@ public class TlbCodeGen(
             is AST.TypeExpression.AnonymousConstructor -> TODO()
             is AST.TypeExpression.CellRef -> TODO()
             is AST.TypeExpression.Conditional -> TODO()
-            is AST.TypeExpression.Param -> {
-
-            }
-            is AST.TypeExpression.Type -> TODO()
+            is AST.TypeExpression.Tuple -> TODO()
         }
     }
 
@@ -230,8 +294,6 @@ public class TlbCodeGen(
         }
     }
 
-
-
     private fun generateLoadNatField(constructor: TlbConstructor, field: TlbField): Action {
         val id = field.name ?: newTmpVar()
         val sb = StringBuilder()
@@ -250,7 +312,6 @@ public class TlbCodeGen(
             TODO()
         }
         return Action(sb.toString())
-
     }
 
     private data class Action(

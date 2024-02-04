@@ -18,7 +18,7 @@ public class TlbCompiler {
             val fieldSize = if (!astField.isImplicit && !astField.isConstraint) {
                 expressionComputeSize(astField.typeExpression)
             } else {
-                null
+                MinMaxSize.fixedSize(0)
             }
             TlbField(
                 ast = astField,
@@ -40,7 +40,7 @@ public class TlbCompiler {
             size = type.size or constructor.size,
             constructors = constructors,
             constructorTrie = constructorTrie,
-            beginsWith = computeBeginWith(constructors)
+            beginsWith = computeBeginWith(constructors),
         )
 
         types[type.name] = type
@@ -90,6 +90,7 @@ public class TlbCompiler {
         return result
     }
 
+
     private fun Iterable<TlbConstructor>.computeConstructorTrie(): BinTrie? {
         var z = 1L
         var trie: BinTrie? = null
@@ -100,20 +101,14 @@ public class TlbCompiler {
         return trie
     }
 
-    public fun expressionAppliedType(expression: AST.TypeExpression): TlbType? = when (expression) {
-        is AST.TypeExpression.Type -> getType(expression.name)
+    public fun expressionAppliedType(expression: AST.TypeExpression): TlbType = when (expression) {
         is AST.TypeExpression.Param -> getType(expression.name)
         is AST.TypeExpression.Apply -> expressionAppliedType(expression)
         else -> null
-    }
+    } ?: error("Unknown type: $expression")
 
     public fun expressionComputeSize(expression: AST.TypeExpression): MinMaxSize = when (expression) {
-        is AST.TypeExpression.Type -> expressionAppliedType(expression)?.size
-            ?: error("Unknown type: ${expression.name}")
-
-        is AST.TypeExpression.Param -> expressionAppliedType(expression)?.size
-            ?: error("Unknown type: ${expression.name}")
-
+        is AST.TypeExpression.Param -> expressionAppliedType(expression).size
         is AST.TypeExpression.CellRef -> {
             val f = expressionComputeSize(expression.expression).isPossible()
             if (f) MinMaxSize.ONE_REF else MinMaxSize.IMPOSSIBLE
@@ -121,7 +116,7 @@ public class TlbCompiler {
 
         is AST.TypeExpression.Apply -> {
             // TODO: fix ast param as type
-            val type = expressionAppliedType(expression) ?: error("Unknown type: $this")
+            val type = expressionAppliedType(expression)
 
             val n = (expression.arguments.firstOrNull() as? AST.TypeExpression.IntConstant)?.value
 
@@ -145,6 +140,7 @@ public class TlbCompiler {
         is AST.TypeExpression.GetBit -> TODO()
         is AST.TypeExpression.IntConstant -> TODO()
         is AST.TypeExpression.Multiply -> TODO()
+        is AST.TypeExpression.Tuple -> TODO()
     }
 
     public fun getType(name: String?): TlbType? {
@@ -219,7 +215,7 @@ public class TlbCompiler {
                 isNatural = false,
                 isPositive = false,
                 isAnyBits = anyBits,
-                isInt = isInt,
+                intSign = isInt,
                 size = minMaxSize,
                 args = args.map { char ->
                     val isNatural = char == '#'

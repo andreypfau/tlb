@@ -42,6 +42,7 @@ third${'$'}11 a:int32 b:Foo = Foo;
             buildString {
                 codeGen.generateSkipMethod(this)
                 codeGen.generateGetSize(this)
+                codeGen.generatePack(this)
             }
         )
 
