@@ -1,6 +1,7 @@
 package org.ton.tlb.compiler
 
 import org.ton.tlb.BitPfxCollection
+import org.ton.tlb.ConstructorTag
 import org.ton.tlb.MinMaxSize
 
 public class TlbField(
@@ -38,7 +39,8 @@ public fun Iterable<TlbField>.computeSize(): MinMaxSize {
     return size
 }
 
-public fun Iterable<TlbField>.computeBeginWith(): BitPfxCollection {
+public fun Iterable<TlbField>.computeBeginWith(tag: ConstructorTag?): BitPfxCollection {
+    val tagValue = tag?.value ?: 0
     for (field in this) {
         if (!field.isImplicit && !field.isConstraint) {
             val expr = field.type
@@ -48,8 +50,10 @@ public fun Iterable<TlbField>.computeBeginWith(): BitPfxCollection {
             if (expr !is TlbTypeExpression.Apply) {
                 break
             }
-            return expr.typeApplied.beginsWith
+            val typeBeginWith =  expr.typeApplied.beginsWith
+            val add = typeBeginWith * tagValue
+            return BitPfxCollection() + add
         }
     }
-    return BitPfxCollection()
+    return BitPfxCollection() + BitPfxCollection(tagValue)
 }

@@ -28,12 +28,25 @@ public class TlbType(
         private set
     public var size: MinMaxSize = size
         private set
-    public var beginsWith: BitPfxCollection = beginsWith
-        private set
+    public val beginsWith: BitPfxCollection = beginsWith
+        get() {
+            if (isFinal) {
+                return field
+            }
+            var beginsWith = BitPfxCollection()
+            println("start begin with: $beginsWith")
+            for (constructor in constructors) {
+                println("constructor begin with: ${constructor.beginWith}")
+                beginsWith += constructor.beginWith
+                println("type begin with: $beginsWith")
+            }
+            println("end begin with: $beginsWith")
+            return beginsWith
+        }
 
     init {
         if (!isFinal) {
-            recalculate()
+//            recalculate()
         }
     }
 
@@ -62,7 +75,6 @@ public class TlbType(
         }
         isAnyBits = constructors.all { it.isAnyBits }
         size = constructors.computeSize()
-        beginsWith = constructors.computeBeginWith()
     }
 
     override fun toString(): String = buildString {
@@ -71,7 +83,14 @@ public class TlbType(
             appendLine("  constructor `${constructor.name}`")
             appendLine("    $constructor")
             appendLine("    begins with: ${constructor.beginWith}")
-            appendLine("    size: ${constructor.size}")
+            append("    size: ${constructor.size}")
+            if (constructor.size.isFixed()) {
+                append(" (fixed)")
+            }
+            if (constructor.isAnyBits) {
+                append(" (any bits)")
+            }
+            appendLine()
         }
         appendLine("  type size: $size")
         appendLine("  type begins with: $beginsWith")

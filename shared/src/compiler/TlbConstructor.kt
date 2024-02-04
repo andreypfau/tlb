@@ -26,7 +26,7 @@ public data class TlbConstructor(
     }
 
     public val size: MinMaxSize = tag.size + fields.computeSize()
-    public val beginWith: BitPfxCollection = fields.computeBeginWith() + BitPfxCollection(tag?.value ?: 0)
+    public val beginWith: BitPfxCollection get() = fields.computeBeginWith(tag)
     public val isAnyBits: Boolean = explicitFields.isEmpty() || explicitFields.all { it.type.isAnyBits }
 
     public val isEnum: Boolean get() = explicitFields.isEmpty()
