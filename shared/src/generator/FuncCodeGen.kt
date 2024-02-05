@@ -65,6 +65,7 @@ public class FuncCodeGen(
         }
         val expr = field.field.type
         val size = expr.size
+        val vt = field.primitiveType
         if (size.isFixed() && field.primitiveType != TlbPrimitiveType.ENUM ) {
             if (field.primitiveType == TlbPrimitiveType.ANONYMOUS) {
                 TODO()
@@ -77,6 +78,13 @@ public class FuncCodeGen(
         if (expr is TlbTypeExpression.NaturalParam && expr.isNegated) {
 
         }
+
+        if (vt == TlbPrimitiveType.SLICE || vt == TlbPrimitiveType.ENUM) {
+            fetchType(field, expr)
+            return@apply
+        }
+
+        fetchRef(field, expr)
     }
 
 
@@ -338,7 +346,29 @@ public class FuncCodeGen(
             actions.add(Action(action))
         }
 
-        private fun Appendable.appendExpr(expression: TlbTypeExpression): Appendable = appendable.apply {
+        fun fetchType(field: ConsField, expression: TlbTypeExpression) {
+            val fieldName = fieldVars[field] ?: throw UndefinedFieldException(field.name)
+            val action = buildString {
+                append("var ")
+                append(fieldName)
+                append(" = cs~")
+                appendExpr(expression)
+                append("::load()")
+            }
+            actions.add(Action(action))
+        }
+
+        fun fetchRef(field: ConsField, expr: TlbTypeExpression) {
+            val fieldNme = fieldVars[field] ?: throw UndefinedFieldException(field.name)
+            val action = buildString {
+                append("var ")
+                append(fieldNme)
+                append(" = cs~load_ref()")
+            }
+            actions.add(Action(action))
+        }
+
+        public fun Appendable.appendExpr(expression: TlbTypeExpression): Appendable = apply {
             when(expression) {
                 is TlbTypeExpression.Apply -> {
                     append(FuncCodeGen(type).funcClassName)
