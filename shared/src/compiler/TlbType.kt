@@ -6,7 +6,7 @@ import org.ton.tlb.MinMaxSize
 
 public class TlbType(
     public val name: String,
-    public val producesNatural: Boolean,
+    public val isProducesNatural: Boolean,
     public val isNatural: Boolean = false,
     public val isAnon: Boolean = false,
     public val intSign: Int = 0,
@@ -15,7 +15,7 @@ public class TlbType(
     isAnyBits: Boolean = false,
     size: MinMaxSize = MinMaxSize.IMPOSSIBLE,
     beginsWith: BitPfxCollection = BitPfxCollection(),
-    public val isFinal: Boolean = false
+    public val isFinal: Boolean = false,
 ) {
     private val constructors_: MutableList<TlbConstructor> = constructors.toMutableList()
     public val constructors: List<TlbConstructor> get() = constructors_
@@ -28,21 +28,10 @@ public class TlbType(
         private set
     public var size: MinMaxSize = size
         private set
-    public val beginsWith: BitPfxCollection = beginsWith
-        get() {
-            if (isFinal) {
-                return field
-            }
-            var beginsWith = BitPfxCollection()
-            println("start begin with: $beginsWith")
-            for (constructor in constructors) {
-                println("constructor begin with: ${constructor.beginWith}")
-                beginsWith += constructor.beginWith
-                println("type begin with: $beginsWith")
-            }
-            println("end begin with: $beginsWith")
-            return beginsWith
-        }
+    public var beginsWith: BitPfxCollection = beginsWith
+        private set
+    public val isUnit: Boolean get() = size.isFixed() && size.minSize == 0
+    public val isBool: Boolean get() = size.isFixed() && size.minSize == 1 && size.minRefs == 0
 
     init {
         if (!isFinal) {
@@ -73,7 +62,12 @@ public class TlbType(
         } else {
             true
         }
+        recomputeSize()
         isAnyBits = constructors.all { it.isAnyBits }
+        beginsWith = constructors.computeBeginWith()
+    }
+
+    public fun recomputeSize() {
         size = constructors.computeSize()
     }
 

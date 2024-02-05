@@ -16,4 +16,8 @@ public class UndefinedTypeException(
     public val typeName: String
 ) : Exception("Type `$typeName` is not defined")
 
+public class UndefinedFieldException(
+    public val fieldName: String
+) : Exception("Field `$fieldName` is not defined")
+
 public class CantApplyNonNatTypeException() : Exception("Can't apply non-nat type")

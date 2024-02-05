@@ -36,7 +36,7 @@ public sealed interface AST {
         val tag: ConstructorTag?,
         val fields: List<Field>,
         val typeName: String,
-        val args: List<ConstructorArg>,
+        val args: List<TypeExpression>,
         val isExotic: Boolean = false,
     ) : AST {
         override fun toString(): String {
@@ -60,10 +60,7 @@ public sealed interface AST {
             append(typeName)
             args.forEach { arg ->
                 append(" ")
-                if (arg.isNegated) {
-                    append("~")
-                }
-                append(arg.expression)
+                append(arg)
             }
         }
     }

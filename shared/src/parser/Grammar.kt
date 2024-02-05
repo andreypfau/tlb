@@ -185,11 +185,10 @@ public class TlbGrammar : Grammar<List<AST.Constructor>>() {
         val fields = fields()
         eq()
         val typeName = identifier()
-        val args = ArrayList<AST.ConstructorArg>(2)
+        val args = ArrayList<AST.TypeExpression>(2)
         while (poll(semicolon) == null) {
-            val negate = poll(tilda) != null
             val expr = term()
-            args.add(AST.ConstructorArg(expr, negate))
+            args.add(expr)
         }
         AST.Constructor(name, tag, fields, typeName, args, isExotic)
     }

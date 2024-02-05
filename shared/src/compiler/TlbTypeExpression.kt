@@ -12,6 +12,7 @@ public sealed interface TlbTypeExpression {
     public val intSign: Int get() = 0
     public val isInt: Boolean get() = intSign != 0
     public val isAnon: Boolean get() = false
+    public val isNatural: Boolean get() = false
 
     public data object Type : TlbTypeExpression {
         override val size: MinMaxSize = MinMaxSize.fixedSize(0)
@@ -20,13 +21,27 @@ public sealed interface TlbTypeExpression {
         override fun toString(): String = "Type"
     }
 
-    public data class Param(
-        val name: String,
+    public data class TypeParam(
+        override val name: String,
         val isNegated: Boolean = false,
-    ) : TlbTypeExpression {
+    ) : TlbParamExpression {
         // any size possible for type parameters
         override val size: MinMaxSize get() = MinMaxSize.ANY
         override val isAnyBits: Boolean get() = false
+
+        override fun toString(): String = buildString {
+            if (isNegated) {
+                append("~")
+            }
+            append(name)
+        }
+    }
+
+    public data class NaturalParam(
+       override val name: String,
+        val isNegated: Boolean = false,
+    ) : TlbNatExpression, TlbParamExpression {
+        override fun interpretNat(): Int = 0xF // for now, natural parameters can take arbitrary values
 
         override fun toString(): String = buildString {
             if (isNegated) {
@@ -49,6 +64,10 @@ public sealed interface TlbTypeExpression {
 
         override val isAnon: Boolean get() = arguments.isEmpty() && typeApplied.isAnon
 
+        override val isNatural: Boolean get() = typeApplied.isNatural
+
+        val isNaturalSubType: Boolean get() = typeApplied.isProducesNatural
+
         override val isAnyBits: Boolean = run {
             val expression = arguments.getOrNull(0)
             if (arguments.size == 1 && expression is IntConstant) {
@@ -61,36 +80,37 @@ public sealed interface TlbTypeExpression {
             typeApplied.isAnyBits
         }
 
-        override val size: MinMaxSize = run {
-            val expression = arguments.getOrNull(0)
-            if (arguments.size == 1 && expression is IntConstant) {
-                val n = expression.value
-                when (typeApplied) {
-                    TlbCompiler.NAT_WIDTH_TYPE,
-                    TlbCompiler.INT_TYPE,
-                    TlbCompiler.UINT_TYPE,
-                    TlbCompiler.BITS_TYPE -> {
-                        val s = MinMaxSize.fixedSize(min(n, 2047))
-                        return@run s
+        override val size: MinMaxSize
+            get() {
+                val expression = arguments.getOrNull(0)
+                if (arguments.size == 1 && expression is IntConstant) {
+                    val n = expression.value
+                    when (typeApplied) {
+                        TlbCompiler.NAT_WIDTH_TYPE,
+                        TlbCompiler.INT_TYPE,
+                        TlbCompiler.UINT_TYPE,
+                        TlbCompiler.BITS_TYPE -> {
+                            val s = MinMaxSize.fixedSize(min(n, 2047))
+                            return s
+                        }
+
+                        TlbCompiler.NAT_LEQ_TYPE -> return MinMaxSize.fixedSize(
+                            min(
+                                32 - n.countLeadingZeroBits(),
+                                2047
+                            )
+                        )
+
+                        TlbCompiler.NAT_LESS_TYPE -> return MinMaxSize.fixedSize(
+                            min(
+                                32 - (n - 1).countLeadingZeroBits(),
+                                2047
+                            )
+                        )
                     }
-
-                    TlbCompiler.NAT_LEQ_TYPE -> return@run MinMaxSize.fixedSize(
-                        min(
-                            32 - n.countLeadingZeroBits(),
-                            2047
-                        )
-                    )
-
-                    TlbCompiler.NAT_LESS_TYPE -> return@run MinMaxSize.fixedSize(
-                        min(
-                            32 - (n - 1).countLeadingZeroBits(),
-                            2047
-                        )
-                    )
                 }
+                return typeApplied.size
             }
-            typeApplied.size
-        }
 
         override fun toString(): String = buildString {
             append("(")
@@ -106,11 +126,11 @@ public sealed interface TlbTypeExpression {
     public data class Add(
         val expression: TlbTypeExpression,
         val expression2: TlbTypeExpression,
-    ) : TlbNatTypeExpression {
+    ) : TlbNatExpression {
         override fun interpretNat(): Int =
             abstractAdd(
-                (expression as? TlbNatTypeExpression)?.interpretNat() ?: 0,
-                (expression2 as? TlbNatTypeExpression)?.interpretNat() ?: 0
+                (expression as? TlbNatExpression)?.interpretNat() ?: 0,
+                (expression2 as? TlbNatExpression)?.interpretNat() ?: 0
             )
 
         override fun toString(): String = "($expression + $expression2)"
@@ -119,11 +139,11 @@ public sealed interface TlbTypeExpression {
     public data class GetBit(
         val expression: TlbTypeExpression,
         val expression2: TlbTypeExpression,
-    ) : TlbNatTypeExpression {
+    ) : TlbNatExpression {
         override fun interpretNat(): Int =
             abstractGetBit(
-                (expression as? TlbNatTypeExpression)?.interpretNat() ?: 0,
-                (expression2 as? TlbNatTypeExpression)?.interpretNat() ?: 0
+                (expression as? TlbNatExpression)?.interpretNat() ?: 0,
+                (expression2 as? TlbNatExpression)?.interpretNat() ?: 0
             )
 
         override fun toString(): String {
@@ -132,12 +152,12 @@ public sealed interface TlbTypeExpression {
     }
 
     public data class Multiply(
-        val value: TlbNatTypeExpression,
+        val value: TlbNatExpression,
         val expression: TlbTypeExpression,
-    ) : TlbNatTypeExpression {
+    ) : TlbNatExpression {
         override fun interpretNat(): Int =
             abstractMul(
-                (value as? TlbNatTypeExpression)?.interpretNat() ?: 0,
+                (value as? TlbNatExpression)?.interpretNat() ?: 0,
                 value.interpretNat()
             )
 
@@ -146,14 +166,14 @@ public sealed interface TlbTypeExpression {
 
     public data class IntConstant(
         val value: Int,
-    ) : TlbNatTypeExpression {
+    ) : TlbNatExpression {
         override fun toString(): String = value.toString()
 
         override fun interpretNat(): Int = abstractNatConst(value)
     }
 
     public data class Tuple(
-        val value: TlbNatTypeExpression,
+        val value: TlbNatExpression,
         val expression: TlbTypeExpression,
     ) : TlbTypeExpression {
         override val size: MinMaxSize = value.interpretNat().let { nat ->
@@ -200,7 +220,7 @@ public sealed interface TlbTypeExpression {
     }
 
     public data class Conditional(
-        val condition: TlbNatTypeExpression,
+        val condition: TlbNatExpression,
         val expression: TlbTypeExpression,
     ) : TlbTypeExpression {
         override val size: MinMaxSize = condition.interpretNat().let { value ->
@@ -227,9 +247,13 @@ public sealed interface TlbTypeExpression {
     }
 }
 
-public sealed interface TlbNatTypeExpression : TlbTypeExpression {
+public sealed interface TlbNatExpression : TlbTypeExpression {
     override val size: MinMaxSize get() = MinMaxSize.fixedSize(0)
     override val isAnyBits: Boolean get() = true
 
     public fun interpretNat(): Int
+}
+
+public sealed interface TlbParamExpression : TlbTypeExpression {
+    public val name: String
 }

@@ -1,6 +1,6 @@
 package org.ton.tlb.generator
 
-public enum class PrimitiveType {
+public enum class TlbPrimitiveType {
     SLICE,
     CELL,
     TYPE,
@@ -14,5 +14,5 @@ public enum class PrimitiveType {
     UINT32,
     INT64,
     UINT64,
-    ANONYMOUS_CONSTRUCTOR
+    ANONYMOUS
 }

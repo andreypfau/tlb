@@ -3,6 +3,7 @@ package org.ton.tlb.compiler
 import org.ton.tlb.BitPfxCollection
 import org.ton.tlb.ConstructorTag
 import org.ton.tlb.MinMaxSize
+import org.ton.tlb.size
 
 public class TlbField(
     public val name: String,
@@ -31,10 +32,12 @@ public class TlbField(
     }
 }
 
-public fun Iterable<TlbField>.computeSize(): MinMaxSize {
-    var size = MinMaxSize.fixedSize(0)
+public fun Iterable<TlbField>.computeSize(tag: ConstructorTag?): MinMaxSize {
+    var size = tag.size
     for (field in this) {
-        size += field.type.size
+        if (!field.isImplicit && !field.isConstraint) {
+            size += field.type.size
+        }
     }
     return size
 }

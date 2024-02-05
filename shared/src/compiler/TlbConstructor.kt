@@ -8,14 +8,14 @@ public data class TlbConstructor(
     public val name: String,
     public val typeName: String,
     public val fields: List<TlbField> = emptyList(),
-    public val params: List<TlbTypeExpression.Param> = emptyList()
+    public val params: List<TlbTypeExpression> = emptyList()
 ) {
     /***
      * Returns a list of constructor arguments that are not negated.
      */
-    public val trueParams: List<TlbTypeExpression.Param>
+    public val trueParams: List<TlbTypeExpression>
         get() = params.filter {
-            !it.isNegated
+            it !is TlbTypeExpression.NaturalParam || !it.isNegated
         }
 
     /**
@@ -25,8 +25,8 @@ public data class TlbConstructor(
         !it.isConstraint && !it.isImplicit
     }
 
-    public val size: MinMaxSize = tag.size + fields.computeSize()
-    public val beginWith: BitPfxCollection get() = fields.computeBeginWith(tag)
+    public val size: MinMaxSize get() = fields.computeSize(tag)
+    public val beginWith: BitPfxCollection = fields.computeBeginWith(tag)
     public val isAnyBits: Boolean = explicitFields.isEmpty() || explicitFields.all { it.type.isAnyBits }
 
     public val isEnum: Boolean get() = explicitFields.isEmpty()
@@ -106,9 +106,10 @@ public fun Iterable<TlbConstructor>.computeBeginWith(): BitPfxCollection {
 }
 
 public fun Iterable<TlbConstructor>.computeSize(): MinMaxSize {
-    var size = MinMaxSize.fixedSize(0)
+    var size = MinMaxSize.IMPOSSIBLE
     for (constructor in this) {
-        size = size or constructor.size
+        val constructorSize = constructor.size
+        size = size or constructorSize
     }
     return size
 }

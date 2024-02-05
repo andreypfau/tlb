@@ -1,6 +1,5 @@
 package org.ton.tlb.compiler
 
-import me.alllex.parsus.token.EofToken.name
 import org.ton.tlb.BitPfxCollection
 import org.ton.tlb.MinMaxSize
 import org.ton.tlb.compiler.TlbTypeExpression.Type.isAnon
@@ -15,24 +14,38 @@ public class TlbCompiler {
     public val types: MutableMap<String, TlbType> = mutableMapOf()
 
     public fun compileConstructor(ast: AST.Constructor): TlbType {
+        val type = getType(ast.typeName) ?: registerNewType(ast.typeName)
         var fields = ArrayList<TlbField>()
         ast.fields.forEach {
             fields.add(compileField(it, fields))
+        }
+        val params = ast.args.map {
+            compileTypeExpression(it, fields)
         }
         val constructor = TlbConstructor(
             tag = ast.tag,
             name = ast.name,
             typeName = ast.typeName,
             fields = fields,
+            params = params
         )
-        var type = getType(ast.typeName) ?: registerNewType(ast.typeName)
         type += constructor
+
+        var size = type.size
+        while (true) {
+            type.recomputeSize()
+            val newSize = type.size
+            if (newSize == size) {
+                break
+            }
+            size = newSize
+        }
 
         return type
     }
 
     private fun compileAnonConstructor(ast: AST.TypeExpression.AnonymousConstructor): TlbType {
-        var fields = ArrayList<TlbField>()
+        val fields = ArrayList<TlbField>()
         ast.fields.forEach {
             fields.add(compileField(it, fields))
         }
@@ -42,10 +55,13 @@ public class TlbCompiler {
             typeName = "",
             fields = fields,
         )
-        return TlbType("", false, isAnon, constructors = listOf(constructor))
+        return TlbType(name = "", false, isAnon, constructors = listOf(constructor))
     }
 
-    public fun compileField(ast: AST.Field, definedFields: List<TlbField>): TlbField {
+    public fun compileField(
+        ast: AST.Field,
+        definedFields: List<TlbField>,
+    ): TlbField {
         return TlbField(
             name = ast.name ?: "",
             type = compileTypeExpression(ast.typeExpression, definedFields),
@@ -54,7 +70,10 @@ public class TlbCompiler {
         )
     }
 
-    public fun compileTypeExpression(ast: AST.TypeExpression, definedFields: List<TlbField>): TlbTypeExpression {
+    public fun compileTypeExpression(
+        ast: AST.TypeExpression,
+        definedFields: List<TlbField>
+    ): TlbTypeExpression {
         return when (ast) {
             is AST.TypeExpression.AnonymousConstructor -> {
                 val type = compileAnonConstructor(ast)
@@ -74,7 +93,7 @@ public class TlbCompiler {
             )
 
             is AST.TypeExpression.Conditional -> TlbTypeExpression.Conditional(
-                compileTypeExpression(ast.expression, definedFields) as? TlbNatTypeExpression
+                compileTypeExpression(ast.expression, definedFields) as? TlbNatExpression
                     ?: throw CantApplyNonNatTypeException(),
                 compileTypeExpression(ast.expression2, definedFields),
             )
@@ -88,13 +107,18 @@ public class TlbCompiler {
                 compileTypeExpression(ast.expression2, definedFields)
             )
             is AST.TypeExpression.IntConstant -> TlbTypeExpression.IntConstant(ast.value)
-            is AST.TypeExpression.Multiply -> TlbTypeExpression.Multiply(
-                compileTypeExpression(ast.value, definedFields) as? TlbNatTypeExpression
-                    ?: throw CantApplyNonNatTypeException(),
-                compileTypeExpression(ast.expression, definedFields)
-            )
+            is AST.TypeExpression.Multiply -> {
+                val value = compileTypeExpression(ast.value, definedFields)
+                val subType = compileTypeExpression(ast.expression, definedFields)
+
+                TlbTypeExpression.Multiply(
+                    value as? TlbNatExpression
+                        ?: throw CantApplyNonNatTypeException(),
+                    subType
+                )
+            }
             is AST.TypeExpression.Tuple -> TlbTypeExpression.Tuple(
-                compileTypeExpression(ast.value, definedFields) as? TlbNatTypeExpression
+                compileTypeExpression(ast.value, definedFields) as? TlbNatExpression
                     ?: throw CantApplyNonNatTypeException(),
                 compileTypeExpression(ast.expression, definedFields)
             )
@@ -108,7 +132,20 @@ public class TlbCompiler {
                 }
                 val fieldDef = definedFields.find { it.name == ast.name }
                 if (fieldDef != null) {
-                    return TlbTypeExpression.Param(ast.name, ast.isNegated)
+                    val fieldType = fieldDef.type
+                    val isNat = if (fieldType is TlbTypeExpression.Apply) {
+                        fieldType.typeApplied.isProducesNatural
+                    } else {
+                        false
+                    }
+                    return if (isNat) {
+                        TlbTypeExpression.NaturalParam(ast.name, ast.isNegated)
+                    } else {
+                        check(fieldType == TlbTypeExpression.Type) {
+                            "cannot use a field in an expression unless it is either an integer or a type"
+                        }
+                        TlbTypeExpression.TypeParam(ast.name, ast.isNegated)
+                    }
                 }
                 val type = registerNewType(ast.name)
                 return TlbTypeExpression.Apply(type)
@@ -188,7 +225,7 @@ public class TlbCompiler {
 
             val type = TlbType(
                 name = name,
-                producesNatural = producesNatural,
+                isProducesNatural = producesNatural,
                 isNatural = false,
 //                isPositive = false,
                 isAnyBits = anyBits,
@@ -198,7 +235,7 @@ public class TlbCompiler {
                     val isNatural = char == '#'
                     TlbType(
                         name = "#",
-                        producesNatural = false,
+                        isProducesNatural = false,
                         isNatural = isNatural,
 //                        isPositive = isPositive,
                         beginsWith = BitPfxCollection.all(),

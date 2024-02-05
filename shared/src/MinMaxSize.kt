@@ -6,7 +6,6 @@ import kotlin.math.min
 public class MinMaxSize private constructor(
     public val value: Long
 ) {
-
     public constructor(
         minRefs: Int,
         minBits: Int,
@@ -100,6 +99,15 @@ public class MinMaxSize private constructor(
         }
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is MinMaxSize) return false
+        if (value != other.value) return false
+        return true
+    }
+
+    override fun hashCode(): Int = value.hashCode()
+
     public companion object {
         public const val MAX_SIZE_CELL: Int = 0x3FF04 // 0x3FF = 1023 bits, 0x04 = 4 refs
         public const val BITS_MASK: Long = 0x7FF
@@ -107,7 +115,7 @@ public class MinMaxSize private constructor(
 
         public val ONE_REF: MinMaxSize = MinMaxSize(0x100000001)
         public val ANY: MinMaxSize = MinMaxSize(0x7ff07)
-        public val IMPOSSIBLE: MinMaxSize = MinMaxSize(0x7ff07 shl 32)
+        public val IMPOSSIBLE: MinMaxSize = MinMaxSize(0x7ff07L shl 32)
 
         public fun convertSize(z: Int): Int = ((z and 0xFF) shl 16) or (z ushr 8)
 

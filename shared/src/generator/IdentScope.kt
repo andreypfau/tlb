@@ -1,13 +1,10 @@
 package org.ton.tlb.generator
 
 public class IdentScope(
-    private val forbiddenIdentifiers: Collection<String> = emptyList()
-) {
-    private val identifiers = HashSet<String>()
-
-    public val size: Int get() = identifiers.size
-
-    public operator fun contains(identifier: String): Boolean = identifiers.contains(identifier)
+    private val forbiddenIdentifiers: Collection<String> = emptyList(),
+    private val identifiers: MutableSet<String> = HashSet()
+) : Collection<String> by identifiers {
+    public fun clear(): Unit = identifiers.clear()
 
     public fun registerIdentifier(originalIdentifier: String, count: Int = 0): String {
         var i = count
