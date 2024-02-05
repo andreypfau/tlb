@@ -6,3 +6,4 @@ product:
 
 dependencies:
   - me.alllex.parsus:parsus:0.6.1
+  - io.github.andreypfau:kotlinx-crypto-crc32:0.0.1

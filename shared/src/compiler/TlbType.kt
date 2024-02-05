@@ -4,33 +4,71 @@ import org.ton.tlb.BinTrie
 import org.ton.tlb.BitPfxCollection
 import org.ton.tlb.MinMaxSize
 
-public data class TlbType(
+public class TlbType(
     public val name: String,
-    public val producesNatural: Boolean,
+    public val isProducesNatural: Boolean,
     public val isNatural: Boolean = false,
-    public val isPositive: Boolean = false,
-    public val isAnyBits: Boolean = false,
-    public val isInt: Int = 0,
-    public val size: MinMaxSize = MinMaxSize.fixedSize(MinMaxSize.MAX_SIZE_CELL),
+    public val isAnon: Boolean = false,
+    public val intSign: Int = 0,
     public val args: List<TlbType> = emptyList(),
-    public val constructorTrie: BinTrie? = null,
-    public val beginsWith: BitPfxCollection = BitPfxCollection(),
-    public val constructors: List<TlbConstructor> = emptyList()
+    constructors: List<TlbConstructor> = emptyList(),
+    isAnyBits: Boolean = false,
+    size: MinMaxSize = MinMaxSize.IMPOSSIBLE,
+    beginsWith: BitPfxCollection = BitPfxCollection(),
+    public val isFinal: Boolean = false,
 ) {
-    public val isPrefixDetermined: Boolean by lazy {
-        if (constructorTrie != null) {
+    private val constructors_: MutableList<TlbConstructor> = constructors.toMutableList()
+    public val constructors: List<TlbConstructor> get() = constructors_
+
+    public var constructorTrie: BinTrie? = null
+        private set
+    public var isPrefixDetermined: Boolean = true
+        private set
+    public var isAnyBits: Boolean = isAnyBits
+        private set
+    public var size: MinMaxSize = size
+        private set
+    public var beginsWith: BitPfxCollection = beginsWith
+        private set
+    public val isUnit: Boolean get() = size.isFixed() && size.minSize == 0
+    public val isBool: Boolean get() = size.isFixed() && size.minSize == 1 && size.minRefs == 0
+
+    init {
+        if (!isFinal) {
+//            recalculate()
+        }
+    }
+
+    public val isInt: Boolean get() = intSign != 0
+
+    public val isEnum: Boolean get() = constructors.all {
+        it.isEnum
+    }
+
+    public val isSimpleEnum: Boolean get() = constructors.all {
+        it.isSimpleEnum
+    }
+
+    public operator fun plusAssign(constructor: TlbConstructor) {
+        check(!isFinal) { "Cannot add constructor to a final type" }
+        constructors_.add(constructor)
+        recalculate()
+    }
+
+    private fun recalculate() {
+        val constructorTrie = constructors.computeConstructorTrie()
+        isPrefixDetermined = if (constructorTrie != null) {
             constructorTrie.findConflictPath() == 0L
         } else {
             true
         }
+        recomputeSize()
+        isAnyBits = constructors.all { it.isAnyBits }
+        beginsWith = constructors.computeBeginWith()
     }
 
-    public val isEnum: Boolean = constructors.all {
-        it.isEnum
-    }
-
-    public val isSimpleEnum: Boolean = constructors.all {
-        it.isSimpleEnum
+    public fun recomputeSize() {
+        size = constructors.computeSize()
     }
 
     override fun toString(): String = buildString {
@@ -39,7 +77,14 @@ public data class TlbType(
             appendLine("  constructor `${constructor.name}`")
             appendLine("    $constructor")
             appendLine("    begins with: ${constructor.beginWith}")
-            appendLine("    size: ${constructor.size}")
+            append("    size: ${constructor.size}")
+            if (constructor.size.isFixed()) {
+                append(" (fixed)")
+            }
+            if (constructor.isAnyBits) {
+                append(" (any bits)")
+            }
+            appendLine()
         }
         appendLine("  type size: $size")
         appendLine("  type begins with: $beginsWith")

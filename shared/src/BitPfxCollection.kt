@@ -64,7 +64,8 @@ public class BitPfxCollection private constructor(
         }
         var w = z.lowerBit()
         while (pfx.size != 0) {
-            val t = prefix xor pfx.last()
+            val b = pfx.last()
+            val t = z xor b
             if (t == 0L) {
                 return
             }

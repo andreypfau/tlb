@@ -36,7 +36,7 @@ public sealed interface AST {
         val tag: ConstructorTag?,
         val fields: List<Field>,
         val typeName: String,
-        val args: List<ConstructorArg>,
+        val args: List<TypeExpression>,
         val isExotic: Boolean = false,
     ) : AST {
         override fun toString(): String {
@@ -60,91 +60,23 @@ public sealed interface AST {
             append(typeName)
             args.forEach { arg ->
                 append(" ")
-                if (arg.isNegated) {
-                    append("~")
-                }
-                append(arg.expression)
+                append(arg)
             }
         }
     }
 
     public sealed interface TypeExpression : AST {
-        public data class IntConstant(
-            val value: Int
-        ) : TypeExpression {
-            override fun toString(): String = value.toString()
-        }
+        public sealed interface NaturalTypExpression : TypeExpression
 
-        public data class CellRef(
-            val expression: TypeExpression
-        ) : TypeExpression {
-            override fun toString(): String = "^$expression"
-        }
-
-        public data class Multiply(
-            val value: TypeExpression,
-            val expression: TypeExpression
-        ) : TypeExpression {
-            override fun toString(): String = "($value * $expression)"
-        }
-
-        public data class Add(
-            val expression: TypeExpression,
-            val expression2: TypeExpression
-        ) : TypeExpression {
-
-            override fun toString(): String {
-                return "($expression + $expression2)"
-            }
-        }
-
-        public data class Param(
+        public data class TypeApply(
             val name: String,
-            val isNegated: Boolean = false
+            val isNegated: Boolean = false,
         ) : TypeExpression {
             override fun toString(): String = buildString {
                 if (isNegated) {
                     append("~")
                 }
                 append(name)
-            }
-        }
-
-        public data class Type(
-            val name: String
-        ) : TypeExpression {
-            override fun toString(): String = name
-        }
-
-        public data class GetBit(
-            val expression: TypeExpression,
-            val expression2: TypeExpression
-        ) : TypeExpression {
-
-            override fun toString(): String {
-                return "($expression.$expression2)"
-            }
-        }
-
-        public data class Conditional(
-            val expression: TypeExpression,
-            val expression2: TypeExpression,
-        ) : TypeExpression {
-            override fun toString(): String {
-                return "($expression?$expression2)"
-            }
-        }
-
-        public data class AnonymousConstructor(
-            val fields: List<Field>
-        ) : TypeExpression {
-            override fun toString(): String = buildString {
-                append("[")
-                fields.forEach {
-                    append(" ")
-                    append(it)
-                }
-                append(" ]")
             }
         }
 
@@ -173,6 +105,74 @@ public sealed interface AST {
                     }
                     return Apply(expression, args.toList())
                 }
+            }
+        }
+
+        public data class Add(
+            val expression: TypeExpression,
+            val expression2: TypeExpression
+        ) : NaturalTypExpression {
+
+            override fun toString(): String {
+                return "($expression + $expression2)"
+            }
+        }
+
+        public data class GetBit(
+            val expression: TypeExpression,
+            val expression2: TypeExpression
+        ) : NaturalTypExpression {
+
+            override fun toString(): String {
+                return "($expression.$expression2)"
+            }
+        }
+
+        public data class Multiply(
+            val value: TypeExpression,
+            val expression: TypeExpression
+        ) : NaturalTypExpression {
+            override fun toString(): String = "($value * $expression)"
+        }
+
+        public data class IntConstant(
+            val value: Int
+        ) : NaturalTypExpression {
+            override fun toString(): String = value.toString()
+        }
+
+        public data class Tuple(
+            val value: TypeExpression,
+            val expression: TypeExpression
+        ) : TypeExpression {
+            override fun toString(): String = "($value * $expression)"
+        }
+
+        public data class CellRef(
+            val expression: TypeExpression
+        ) : TypeExpression {
+            override fun toString(): String = "^$expression"
+        }
+
+        public data class Conditional(
+            val expression: TypeExpression,
+            val expression2: TypeExpression,
+        ) : TypeExpression {
+            override fun toString(): String {
+                return "($expression?$expression2)"
+            }
+        }
+
+        public data class AnonymousConstructor(
+            val fields: List<Field>
+        ) : TypeExpression {
+            override fun toString(): String = buildString {
+                append("[")
+                fields.forEach {
+                    append(" ")
+                    append(it)
+                }
+                append(" ]")
             }
         }
     }

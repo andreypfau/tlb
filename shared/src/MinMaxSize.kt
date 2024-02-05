@@ -6,7 +6,6 @@ import kotlin.math.min
 public class MinMaxSize private constructor(
     public val value: Long
 ) {
-
     public constructor(
         minRefs: Int,
         minBits: Int,
@@ -21,9 +20,9 @@ public class MinMaxSize private constructor(
 
     // |
     public val maxRefs: Int get() = (value and 0xFF).toInt()
-    public val maxBits: Int get() = ((value ushr 8) and 0x7FF).toInt()
+    public val maxBits: Int get() = ((value ushr 8) and BITS_MASK).toInt()
     public val minRefs: Int get() = ((value ushr 32) and 0xFF).toInt()
-    public val minBits: Int get() = ((value ushr 40) and 0x7FF).toInt()
+    public val minBits: Int get() = ((value ushr 40) and BITS_MASK).toInt()
 
     public fun isFixed(): Boolean = minSize == maxSize
 
@@ -36,6 +35,8 @@ public class MinMaxSize private constructor(
     public fun normalize(): MinMaxSize {
         return MinMaxSize(normalize(value))
     }
+
+    public fun withoutMin(): MinMaxSize = MinMaxSize(value and ((1L shl 32) - 1))
 
     public operator fun plus(other: MinMaxSize): MinMaxSize {
         return MinMaxSize(normalize(value + other.value))
@@ -55,12 +56,22 @@ public class MinMaxSize private constructor(
             0 -> MinMaxSize(0)
             1 -> this
             else -> MinMaxSize(
-                min(minRefs * count, 7),
-                min(minBits * count, 0x7FF),
-                min(maxRefs * count, 7),
-                min(maxBits * count, 0x7FF)
+                min(minRefs * count, MAX_REFS_MASK.toInt()),
+                min(minBits * count, BITS_MASK.toInt()),
+                min(maxRefs * count, MAX_REFS_MASK.toInt()),
+                min(maxBits * count, BITS_MASK.toInt())
             )
         }
+    }
+
+    public fun timesAtLeast(count: Int): MinMaxSize {
+        val clampedCount = min(max(count, 0), 1024)
+        return MinMaxSize(
+            minRefs = min(minRefs * clampedCount, MAX_REFS_MASK.toInt()),
+            minBits = min(minBits * clampedCount, BITS_MASK.toInt()),
+            maxRefs = if (maxRefs != 0) MAX_REFS_MASK.toInt() else 0,
+            maxBits = if (maxBits != 0) BITS_MASK.toInt() else 0
+        )
     }
 
     override fun toString(): String = buildString {
@@ -88,12 +99,23 @@ public class MinMaxSize private constructor(
         }
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is MinMaxSize) return false
+        if (value != other.value) return false
+        return true
+    }
+
+    override fun hashCode(): Int = value.hashCode()
+
     public companion object {
         public const val MAX_SIZE_CELL: Int = 0x3FF04 // 0x3FF = 1023 bits, 0x04 = 4 refs
+        public const val BITS_MASK: Long = 0x7FF
+        public const val MAX_REFS_MASK: Long = 7
 
         public val ONE_REF: MinMaxSize = MinMaxSize(0x100000001)
         public val ANY: MinMaxSize = MinMaxSize(0x7ff07)
-        public val IMPOSSIBLE: MinMaxSize = MinMaxSize(0x7ff07 shl 32)
+        public val IMPOSSIBLE: MinMaxSize = MinMaxSize(0x7ff07L shl 32)
 
         public fun convertSize(z: Int): Int = ((z and 0xFF) shl 16) or (z ushr 8)
 

@@ -1,5 +1,8 @@
 package org.ton.tlb
 
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
+
 private val HEX_DIGITS = "0123456789abcdef"
 
 public class ConstructorTag(
@@ -12,8 +15,10 @@ public class ConstructorTag(
             MinMaxSize.fixedSize(0)
         }
 
+    public fun isEmpty(): Boolean = value == 0L
+
     override fun toString(): String {
-        if (value == 0L) {
+        if (isEmpty()) {
             return ""
         }
         return if (value and ((1L shl 59) - 1) == 0L) {
@@ -24,7 +29,7 @@ public class ConstructorTag(
     }
 
     public fun toBinary(): String {
-        if (value == 0L) {
+        if (isEmpty()) {
             return ""
         }
         return buildString {
@@ -42,7 +47,7 @@ public class ConstructorTag(
     }
 
     public fun toHex(): String {
-        if (value == 0L) {
+        if (isEmpty()) {
             return ""
         }
         return buildString {
@@ -131,3 +136,14 @@ public class ConstructorTag(
         }
     }
 }
+
+@OptIn(ExperimentalContracts::class)
+public fun ConstructorTag?.isNullOrEmpty(): Boolean {
+    contract {
+        returns(false) implies (this@isNullOrEmpty != null)
+    }
+    return this == null || this.value == 0L
+}
+
+public val ConstructorTag?.size: MinMaxSize
+    get() = this?.size ?: MinMaxSize.fixedSize(0)
