@@ -1,6 +1,8 @@
 package org.ton.tlb.compiler
 
 import org.ton.tlb.*
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 import kotlin.math.min
 
 public sealed interface TlbTypeExpression {
@@ -256,4 +258,32 @@ public sealed interface TlbNatExpression : TlbTypeExpression {
 
 public sealed interface TlbParamExpression : TlbTypeExpression {
     public val name: String
+}
+
+@OptIn(ExperimentalContracts::class)
+public fun TlbTypeExpression.isNaturalSubType(): Boolean {
+    contract {
+        returns(true) implies (this@isNaturalSubType is TlbTypeExpression.Apply)
+    }
+    return when (this) {
+        is TlbTypeExpression.Apply -> isNaturalSubType
+        else -> false
+    }
+}
+
+@OptIn(ExperimentalContracts::class)
+public fun TlbTypeExpression.isNegated(): Boolean {
+    contract {
+        returns(true) implies (this@isNegated is TlbTypeExpression.NaturalParam)
+    }
+    return when (this) {
+        is TlbTypeExpression.NaturalParam -> isNegated
+        else -> false
+    }
+}
+
+public fun TlbTypeExpression.isReferred(): Boolean = when (this) {
+    is TlbTypeExpression.CellRef -> true
+    is TlbTypeExpression.Apply -> typeApplied == TlbCompiler.CELL_TYPE || typeApplied == TlbCompiler.ANY_TYPE
+    else -> false
 }

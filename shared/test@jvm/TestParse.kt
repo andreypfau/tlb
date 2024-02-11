@@ -1,5 +1,4 @@
 import org.ton.tlb.compiler.TlbCompiler
-import org.ton.tlb.compiler.TlbType
 import org.ton.tlb.compiler.TlbTypeExpression
 import org.ton.tlb.generator.FuncCodeGen
 import org.ton.tlb.parser.TlbGrammar
@@ -26,7 +25,7 @@ nanograms${'$'}_ amount:(VarUInteger 16) = Grams;
 
 //first${'$'}0 = Foo;
 second${'$'}10 a:int32 = Foo;
-third${'$'}11 a:int32 b:Foo = Foo;
+third${'$'}11 a:int32 c:int32 b:^Foo = Foo;
         """.trimIndent()
 
         val ast = TlbGrammar().parseOrThrow(src)
@@ -49,6 +48,7 @@ third${'$'}11 a:int32 b:Foo = Foo;
             funcCodeGen.generate(this)
         }
         println(output)
+//        File("resources/output.fc").writeText(output)
 //        println(
 //            buildString {
 //                codeGen.generateSkipMethod(this)
