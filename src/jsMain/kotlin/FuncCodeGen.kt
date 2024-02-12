@@ -8,14 +8,13 @@ import org.ton.tlb.parser.TlbGrammar
 fun main() {
     document.getElementById("compile")?.addEventListener("click", {
         val src = document.getElementById("src")?.asDynamic().value as String
-        val output = funcCodeGen(src)
+        val (output, debug) = funcCodeGen(src)
         document.getElementById("output")?.textContent = output
+        document.getElementById("debug")?.textContent = debug
     })
 }
 
-@OptIn(ExperimentalJsExport::class)
-@JsExport
-fun funcCodeGen(src: String): String {
+fun funcCodeGen(src: String): List<String> {
     try {
         val ast = TlbGrammar().parseOrThrow(src)
         val compiler = TlbCompiler()
@@ -31,8 +30,12 @@ fun funcCodeGen(src: String): String {
                 funcCodeGen.generate(this)
             }
         }
-        return output
+        return listOf(output, buildString {
+            compiler.types.values.forEach { type ->
+                appendLine(type)
+            }
+        })
     } catch (e: Exception) {
-        return e.stackTraceToString()
+        return listOf(e.stackTraceToString(), "")
     }
 }

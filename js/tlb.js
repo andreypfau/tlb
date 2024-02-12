@@ -8545,6 +8545,15 @@
         return true;
     };
 
+    function main() {
+        var tmp0_safe_receiver = document.getElementById('compile');
+        if (tmp0_safe_receiver == null)
+            null;
+        else {
+            tmp0_safe_receiver.addEventListener('click', main$lambda);
+        }
+    }
+
     function funcCodeGen(src) {
         try {
             var ast = (new TlbGrammar()).parseOrThrow_n30fme_k$(src);
@@ -8575,23 +8584,30 @@
                 funcCodeGen.generate_arbnv5_k$(this_0);
             }
             var output = this_0.toString();
-            return output;
+            // Inline function 'kotlin.text.buildString' call
+            // Inline function 'kotlin.contracts.contract' call
+            // Inline function 'kotlin.apply' call
+            var this_1 = StringBuilder_init_$Create$();
+            // Inline function 'kotlin.contracts.contract' call
+            // Inline function 'org.ton.tlb.funcCodeGen.<anonymous>' call
+            // Inline function 'kotlin.collections.forEach' call
+            var tmp0_iterator_1 = compiler.get_types_izd7io_k$().get_values_ksazhn_k$().iterator_jk1svi_k$();
+            while (tmp0_iterator_1.hasNext_bitz1p_k$()) {
+                var element_1 = tmp0_iterator_1.next_20eer_k$();
+                // Inline function 'org.ton.tlb.funcCodeGen.<anonymous>.<anonymous>' call
+                // Inline function 'kotlin.text.appendLine' call
+                // Inline function 'kotlin.text.appendLine' call
+                this_1.append_t8pm91_k$(element_1).append_am5a4z_k$(_Char___init__impl__6a9atx(10));
+            }
+            var tmp$ret$7 = this_1.toString();
+            return listOf_0([output, tmp$ret$7]);
         } catch ($p) {
             if ($p instanceof Exception) {
                 var e = $p;
-                return stackTraceToString(e);
+                return listOf_0([stackTraceToString(e), '']);
             } else {
                 throw $p;
             }
-        }
-    }
-
-    function main() {
-        var tmp0_safe_receiver = document.getElementById('compile');
-        if (tmp0_safe_receiver == null)
-            null;
-        else {
-            tmp0_safe_receiver.addEventListener('click', main$lambda);
         }
     }
 
@@ -8606,10 +8622,18 @@
         }
         var tmp_0 = tmp.value;
         var src = (!(tmp_0 == null) ? typeof tmp_0 === 'string' : false) ? tmp_0 : THROW_CCE();
-        var output = funcCodeGen(src);
-        var tmp1_safe_receiver = document.getElementById('output');
-        if (tmp1_safe_receiver != null) {
-            tmp1_safe_receiver.textContent = output;
+        var tmp1_container = funcCodeGen(src);
+        // Inline function 'kotlin.collections.component1' call
+        var output = tmp1_container.get_c1px32_k$(0);
+        // Inline function 'kotlin.collections.component2' call
+        var debug = tmp1_container.get_c1px32_k$(1);
+        var tmp2_safe_receiver = document.getElementById('output');
+        if (tmp2_safe_receiver != null) {
+            tmp2_safe_receiver.textContent = output;
+        }
+        var tmp3_safe_receiver = document.getElementById('debug');
+        if (tmp3_safe_receiver != null) {
+            tmp3_safe_receiver.textContent = debug;
         }
         return Unit_getInstance();
     }
@@ -8670,16 +8694,6 @@
     //region block: init
     ALL = new Long(0, -2147483648);
     HEX_DIGITS = '0123456789abcdef';
-    //endregion
-    //region block: exports
-    function $jsExportAll$(_) {
-        var $org = _.org || (_.org = {});
-        var $org$ton = $org.ton || ($org.ton = {});
-        var $org$ton$tlb = $org$ton.tlb || ($org$ton.tlb = {});
-        $org$ton$tlb.funcCodeGen = funcCodeGen;
-    }
-
-    $jsExportAll$(_);
     //endregion
     main();
     return _;

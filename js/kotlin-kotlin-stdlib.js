@@ -94,7 +94,6 @@ if (typeof String.prototype.startsWith === 'undefined') {
     setMetadataFor(KotlinNothingValueException, 'KotlinNothingValueException', classMeta, RuntimeException, VOID, KotlinNothingValueException_init_$Create$);
     setMetadataFor(Annotation, 'Annotation', interfaceMeta);
     setMetadataFor(ExperimentalJsFileName, 'ExperimentalJsFileName', classMeta, VOID, [Annotation]);
-    setMetadataFor(ExperimentalJsExport, 'ExperimentalJsExport', classMeta, VOID, [Annotation]);
     setMetadataFor(IntrinsicConstEvaluation, 'IntrinsicConstEvaluation', classMeta, VOID, [Annotation]);
     setMetadataFor(Companion, 'Companion', objectMeta);
     setMetadataFor(Comparable, 'Comparable', interfaceMeta);
@@ -202,8 +201,6 @@ if (typeof String.prototype.startsWith === 'undefined') {
     setMetadataFor(StringCompanionObject, 'StringCompanionObject', objectMeta);
     setMetadataFor(BooleanCompanionObject, 'BooleanCompanionObject', objectMeta);
     setMetadataFor(AutoCloseable, 'AutoCloseable', interfaceMeta);
-    setMetadataFor(Ignore, 'Ignore', classMeta, VOID, [Annotation]);
-    setMetadataFor(JsExport, 'JsExport', classMeta, VOID, [Annotation]);
     setMetadataFor(JsName, 'JsName', classMeta, VOID, [Annotation]);
     setMetadataFor(JsQualifier, 'JsQualifier', classMeta, VOID, [Annotation]);
     setMetadataFor(JsFileName, 'JsFileName', classMeta, VOID, [Annotation]);
@@ -968,6 +965,10 @@ if (typeof String.prototype.startsWith === 'undefined') {
         return new _no_name_provided__qut3iv(_this__u8e3s4);
     }
 
+    function component2(_this__u8e3s4) {
+        return _this__u8e3s4.get_c1px32_k$(1);
+    }
+
     function indexOfLast(_this__u8e3s4, predicate) {
         var iterator = _this__u8e3s4.listIterator_70e65o_k$(_this__u8e3s4.get_size_woubt6_k$());
         while (iterator.hasPrevious_qh0629_k$()) {
@@ -1029,6 +1030,10 @@ if (typeof String.prototype.startsWith === 'undefined') {
                 return true;
         }
         return false;
+    }
+
+    function component1(_this__u8e3s4) {
+        return _this__u8e3s4.get_c1px32_k$(0);
     }
 
     function mapIndexedNotNull(_this__u8e3s4, transform) {
@@ -2060,22 +2065,6 @@ if (typeof String.prototype.startsWith === 'undefined') {
     };
     protoOf(ExperimentalJsFileName).toString = function () {
         return '@kotlin.js.ExperimentalJsFileName()';
-    };
-
-    function ExperimentalJsExport() {
-    }
-
-    protoOf(ExperimentalJsExport).equals = function (other) {
-        if (!(other instanceof ExperimentalJsExport))
-            return false;
-        other instanceof ExperimentalJsExport || THROW_CCE();
-        return true;
-    };
-    protoOf(ExperimentalJsExport).hashCode = function () {
-        return 0;
-    };
-    protoOf(ExperimentalJsExport).toString = function () {
-        return '@kotlin.js.ExperimentalJsExport()';
     };
 
     function IntrinsicConstEvaluation() {
@@ -6906,38 +6895,6 @@ if (typeof String.prototype.startsWith === 'undefined') {
         }
         return tmp;
     }
-
-    function Ignore() {
-    }
-
-    protoOf(Ignore).equals = function (other) {
-        if (!(other instanceof Ignore))
-            return false;
-        other instanceof Ignore || THROW_CCE();
-        return true;
-    };
-    protoOf(Ignore).hashCode = function () {
-        return 0;
-    };
-    protoOf(Ignore).toString = function () {
-        return '@kotlin.js.JsExport.Ignore()';
-    };
-
-    function JsExport() {
-    }
-
-    protoOf(JsExport).equals = function (other) {
-        if (!(other instanceof JsExport))
-            return false;
-        other instanceof JsExport || THROW_CCE();
-        return true;
-    };
-    protoOf(JsExport).hashCode = function () {
-        return 0;
-    };
-    protoOf(JsExport).toString = function () {
-        return '@kotlin.js.JsExport()';
-    };
 
     function JsName(name) {
         this.name_1 = name;
@@ -13526,7 +13483,7 @@ if (typeof String.prototype.startsWith === 'undefined') {
         return tmp;
     }
 
-    function component1(_this__u8e3s4) {
+    function component1_0(_this__u8e3s4) {
         return _this__u8e3s4.get_key_18j28a_k$();
     }
 
@@ -13538,7 +13495,7 @@ if (typeof String.prototype.startsWith === 'undefined') {
         return pairs.length > 0 ? toMap_0(pairs, LinkedHashMap_init_$Create$_0(mapCapacity(pairs.length))) : emptyMap();
     }
 
-    function component2(_this__u8e3s4) {
+    function component2_0(_this__u8e3s4) {
         return _this__u8e3s4.get_value_j01efc_k$();
     }
 
@@ -17153,13 +17110,18 @@ if (typeof String.prototype.startsWith === 'undefined') {
         return this_0.toString();
     }
 
-    function appendLine_0(_this__u8e3s4, value) {
-        // Inline function 'kotlin.text.appendLine' call
-        return _this__u8e3s4.append_22ad7x_k$(value).append_am5a4z_k$(_Char___init__impl__6a9atx(10));
+    function appendLine_0(_this__u8e3s4) {
+        return _this__u8e3s4.append_am5a4z_k$(_Char___init__impl__6a9atx(10));
     }
 
-    function appendLine_1(_this__u8e3s4) {
-        return _this__u8e3s4.append_am5a4z_k$(_Char___init__impl__6a9atx(10));
+    function appendLine_1(_this__u8e3s4, value) {
+        // Inline function 'kotlin.text.appendLine' call
+        return _this__u8e3s4.append_t8pm91_k$(value).append_am5a4z_k$(_Char___init__impl__6a9atx(10));
+    }
+
+    function appendLine_2(_this__u8e3s4, value) {
+        // Inline function 'kotlin.text.appendLine' call
+        return _this__u8e3s4.append_22ad7x_k$(value).append_am5a4z_k$(_Char___init__impl__6a9atx(10));
     }
 
     function toIntOrNull(_this__u8e3s4) {
