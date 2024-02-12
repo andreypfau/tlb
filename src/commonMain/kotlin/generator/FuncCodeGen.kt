@@ -626,24 +626,12 @@ public class FuncCodeGen(
                         append("cs~load_ref()")
                     }
 
-                    TlbPrimitiveType.BOOL -> {
-                        append("cs~load_uint(1)")
+                    TlbPrimitiveType.INT32, TlbPrimitiveType.INT64 -> {
+                        append("cs~load_int(").append(l).append(")")
                     }
 
-                    TlbPrimitiveType.INT32 -> {
-                        append("cs~load_int(32)")
-                    }
-
-                    TlbPrimitiveType.UINT32 -> {
-                        append("cs~load_uint(32)")
-                    }
-
-                    TlbPrimitiveType.INT64 -> {
-                        append("cs~load_int(64)")
-                    }
-
-                    TlbPrimitiveType.UINT64 -> {
-                        append("cs~load_uint(64)")
+                    TlbPrimitiveType.BOOL, TlbPrimitiveType.UINT32, TlbPrimitiveType.UINT64 -> {
+                        append("cs~load_uint(").append(l).append(")")
                     }
 
                     TlbPrimitiveType.INTEGER -> {
@@ -674,24 +662,12 @@ public class FuncCodeGen(
                         append("cb = cb.store_ref(").append(fieldVar).append(")")
                     }
 
-                    TlbPrimitiveType.BOOL -> {
-                        append("cb = cb.store_uint(").append(fieldVar).append(", 1)")
+                    TlbPrimitiveType.INT32, TlbPrimitiveType.INT64 -> {
+                        append("cb = cb.store_int(").append(fieldVar).append(", ").append(l).append(")")
                     }
 
-                    TlbPrimitiveType.INT32 -> {
-                        append("cb = cb.store_int(").append(fieldVar).append(", 32)")
-                    }
-
-                    TlbPrimitiveType.UINT32 -> {
-                        append("cb = cb.store_uint(").append(fieldVar).append(", 32)")
-                    }
-
-                    TlbPrimitiveType.INT64 -> {
-                        append("cb = cb.store_int(").append(fieldVar).append(", 64)")
-                    }
-
-                    TlbPrimitiveType.UINT64 -> {
-                        append("cb = cb.store_uint(").append(fieldVar).append(", 64)")
+                    TlbPrimitiveType.BOOL, TlbPrimitiveType.UINT32, TlbPrimitiveType.UINT64 -> {
+                        append("cb = cb.store_uint(").append(fieldVar).append(", ").append(l).append(")")
                     }
 
                     TlbPrimitiveType.INTEGER -> {
