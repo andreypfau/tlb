@@ -1,9 +1,0 @@
-product:
-  type: lib
-  platforms:
-    - jvm
-    - macosArm64
-
-dependencies:
-  - me.alllex.parsus:parsus:0.6.1
-  - io.github.andreypfau:kotlinx-crypto-crc32:0.0.1
