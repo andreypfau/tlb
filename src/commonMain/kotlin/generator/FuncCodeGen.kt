@@ -649,7 +649,7 @@ public class FuncCodeGen(
         fun storeField(fieldVar: String, expr: TlbTypeExpression, primitiveType: TlbPrimitiveType) {
             val isInteger = expr.isInt
             val size = expr.size
-            val l = if (size.isFixed()) size.minSize else -1
+            val l = if (size.isFixed()) size.minBits else -1
             val action = buildString {
                 when (primitiveType) {
                     TlbPrimitiveType.BITSTRING,
