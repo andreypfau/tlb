@@ -1,10 +1,14 @@
 plugins {
     kotlin("multiplatform") version "1.9.21"
+    `maven-publish`
 }
 
 repositories {
     mavenCentral()
 }
+
+group = "io.github.andreypfau"
+version = "0.0.1-SNAPSHOT"
 
 kotlin {
     jvm()
