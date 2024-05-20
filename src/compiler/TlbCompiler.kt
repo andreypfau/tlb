@@ -14,13 +14,12 @@ public class TlbCompiler {
     public val types: MutableMap<String, TlbType> = mutableMapOf()
 
     public fun compileConstructor(ast: AST.Constructor): TlbType {
-        val type = getType(ast.typeName) ?: registerNewType(ast.typeName)
         var fields = ArrayList<TlbField>()
-        ast.fields.forEach {
-            fields.add(compileField(it, fields))
+        ast.fields.forEach { field ->
+            fields.add(compileField(field, fields))
         }
-        val params = ast.args.map {
-            compileTypeExpression(it, fields)
+        val params = ast.args.map { expr ->
+            compileTypeExpression(expr, fields)
         }
         val constructor = TlbConstructor(
             tag = ast.tag,
@@ -29,6 +28,7 @@ public class TlbCompiler {
             fields = fields,
             params = params
         )
+        val type = getType(ast.typeName) ?: registerNewType(ast.typeName, params)
         type += constructor
 
         var size = type.size
@@ -141,13 +141,13 @@ public class TlbCompiler {
                     return if (isNat) {
                         TlbTypeExpression.NaturalParam(ast.name, ast.isNegated)
                     } else {
-                        check(fieldType == TlbTypeExpression.Type) {
+                        check(fieldType is TlbTypeExpression.Apply && fieldType.typeApplied == TYPE_TYPE) {
                             "cannot use a field in an expression unless it is either an integer or a type"
                         }
-                        TlbTypeExpression.TypeParam(ast.name, ast.isNegated)
+                        TlbTypeExpression.TypeParam(ast.name)
                     }
                 }
-                val type = registerNewType(ast.name)
+                val type = registerNewType(ast.name, emptyList())
                 return TlbTypeExpression.Apply(type)
             }
         }
@@ -158,9 +158,9 @@ public class TlbCompiler {
         return types[name] ?: getBuiltInType(name)
     }
 
-    public fun registerNewType(name: String): TlbType {
+    public fun registerNewType(name: String, args: List<TlbTypeExpression>): TlbType {
         validateNewType(name)
-        val type = TlbType(name, false)
+        val type = TlbType(name, false, args = args)
         types[name] = type
         return type
     }
@@ -177,7 +177,9 @@ public class TlbCompiler {
 
     public companion object {
         private val builtinTypes = mutableMapOf<String, TlbType>()
-        public val TYPE_TYPE: TlbType = TlbType("Type", false)
+        public val TYPE_TYPE: TlbType = TlbType("Type", false).also {
+            builtinTypes["Type"] = it
+        }
         public val NAT_TYPE: TlbType = defineBuiltinType("#", "", true, 32, 32, true)
         public val NAT_WIDTH_TYPE: TlbType = defineBuiltinType("##", "#", true, 32, 0, true)
         public val NAT_LESS_TYPE: TlbType = defineBuiltinType("#<", "#", true, 32, 0)
@@ -233,13 +235,15 @@ public class TlbCompiler {
                 size = minMaxSize,
                 args = args.map { char ->
                     val isNatural = char == '#'
-                    TlbType(
+                    TlbTypeExpression.Apply(
+                        TlbType(
                         name = "#",
                         isProducesNatural = false,
                         isNatural = isNatural,
 //                        isPositive = isPositive,
                         beginsWith = BitPfxCollection.all(),
                         isFinal = true
+                        )
                     )
                 },
                 beginsWith = BitPfxCollection.all(),

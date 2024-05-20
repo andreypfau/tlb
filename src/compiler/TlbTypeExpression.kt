@@ -15,6 +15,7 @@ public sealed interface TlbTypeExpression {
     public val isInt: Boolean get() = intSign != 0
     public val isAnon: Boolean get() = false
     public val isNatural: Boolean get() = false
+    public val isConstant: Boolean get() = false
 
     public data object Type : TlbTypeExpression {
         override val size: MinMaxSize = MinMaxSize.fixedSize(0)
@@ -25,16 +26,13 @@ public sealed interface TlbTypeExpression {
 
     public data class TypeParam(
         override val name: String,
-        val isNegated: Boolean = false,
     ) : TlbParamExpression {
         // any size possible for type parameters
         override val size: MinMaxSize get() = MinMaxSize.ANY
         override val isAnyBits: Boolean get() = false
+        override val isConstant: Boolean get() = false
 
         override fun toString(): String = buildString {
-            if (isNegated) {
-                append("~")
-            }
             append(name)
         }
     }
@@ -69,6 +67,8 @@ public sealed interface TlbTypeExpression {
         override val isNatural: Boolean get() = typeApplied.isNatural
 
         val isNaturalSubType: Boolean get() = typeApplied.isProducesNatural
+
+        override val isConstant: Boolean get() = arguments.all { it.isConstant }
 
         override val isAnyBits: Boolean = run {
             val expression = arguments.getOrNull(0)
@@ -115,13 +115,18 @@ public sealed interface TlbTypeExpression {
             }
 
         override fun toString(): String = buildString {
-            append("(")
+            val addParens = arguments.isNotEmpty()
+            if (addParens) {
+                append("(")
+            }
             append(typeApplied.name)
             for (arg in arguments) {
                 append(" ")
                 append(arg)
             }
-            append(")")
+            if (addParens) {
+                append(")")
+            }
         }
     }
 
@@ -170,6 +175,7 @@ public sealed interface TlbTypeExpression {
         val value: Int,
     ) : TlbNatExpression {
         override fun toString(): String = value.toString()
+        override val isConstant: Boolean get() = true
 
         override fun interpretNat(): Int = abstractNatConst(value)
     }
@@ -286,4 +292,24 @@ public fun TlbTypeExpression.isReferred(): Boolean = when (this) {
     is TlbTypeExpression.CellRef -> true
     is TlbTypeExpression.Apply -> typeApplied == TlbCompiler.CELL_TYPE || typeApplied == TlbCompiler.ANY_TYPE
     else -> false
+}
+
+public fun TlbTypeExpression.canComputeSizeOf(): Boolean {
+    if (isNatural) {
+        return false
+    }
+    if (size.isFixed()) {
+        return size.minSize and 0xFF == 0
+    }
+    if (this is TlbTypeExpression.Apply) {
+        if (typeApplied == TlbCompiler.INT_TYPE ||
+            typeApplied == TlbCompiler.UINT_TYPE ||
+            typeApplied == TlbCompiler.NAT_WIDTH_TYPE ||
+            typeApplied == TlbCompiler.BITS_TYPE
+        ) {
+            return true
+        }
+        return arguments.firstOrNull()?.canComputeSizeOf() ?: false
+    }
+    return false
 }

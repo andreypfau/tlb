@@ -11,8 +11,10 @@ public class TlbField(
     public val isImplicit: Boolean,
     public val isConstraint: Boolean = false
 ) {
+    public val isExplicit: Boolean get() = !(isImplicit || isConstraint)
+
     override fun toString(): String = buildString {
-        val printBrace = isImplicit || isConstraint
+        val printBrace = !isExplicit
         if (printBrace) {
             append("{")
         }

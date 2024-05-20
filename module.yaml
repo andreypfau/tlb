@@ -1,0 +1,10 @@
+product:
+  type: lib
+  platforms:
+    - jvm
+    - js
+dependencies:
+  - me.alllex.parsus:parsus:0.6.1
+  - io.github.andreypfau:kotlinx-crypto-crc32:0.0.1
+dependencies@js:
+  - org.jetbrains.kotlinx:kotlinx-html:0.8.0

@@ -241,20 +241,22 @@ public class FuncCodeGen(
 
         bindRecordFields(record)
 
-        actions += Action(
-            buildString {
-                append("var (")
-                var seprarator = ""
-                for (field in record.fields) {
-                    if (!field.isImplicit) {
-                        append(seprarator)
-                        append(fieldVar(field))
-                        seprarator = ", "
+        if (record.fields.isNotEmpty()) {
+            actions += Action(
+                buildString {
+                    append("var (")
+                    var seprarator = ""
+                    for (field in record.fields) {
+                        if (!field.isImplicit) {
+                            append(seprarator)
+                            append(fieldVar(field))
+                            seprarator = ", "
+                        }
                     }
+                    append(") = data")
                 }
-                append(") = data")
-            }
-        )
+            )
+        }
 
         for (field in record.fields) {
             if (field.isConstraint) {
@@ -311,55 +313,6 @@ public class FuncCodeGen(
 
         storeRef(field, expr)
     }
-
-
-//    private fun addStoreNatField(ctx: LocalContext, field: ConsField, constructor: TlbConstructor) = ctx.apply {
-//        val expr = field.field.type
-//        check(expr is TlbTypeExpression.Apply)
-//        val ta = expr.typeApplied
-//        if (ta == TlbCompiler.NAT_TYPE) {
-//            val action = buildString {
-//                append("cb = cb.store_uint(")
-//                append(field.name)
-//                append(", 32)")
-//            }
-//            actions.add(Action(action))
-//        } else {
-//            when (ta) {
-//                TlbCompiler.NAT_WIDTH_TYPE -> {
-//                    val action = buildString {
-//                        append("cb = cb.store_uint(")
-//                        append(field.name)
-//                        append(", ")
-//                        appendExpr(expr.arguments.first())
-//                        append(")")
-//                    }
-//                    actions.add(Action(action))
-//                }
-//                TlbCompiler.NAT_LESS_TYPE -> {
-//                    val action = buildString {
-//                        append("cb = cb.store_uint_less(")
-//                        append(field.name)
-//                        append(", ")
-//                        appendExpr(expr.arguments.first())
-//                        append(")")
-//                    }
-//                    actions.add(Action(action))
-//                }
-//                TlbCompiler.NAT_LEQ_TYPE -> {
-//                    val action = buildString {
-//                        append("cb = cb.store_uint_leq(")
-//                        append(field.name)
-//                        append(", ")
-//                        appendExpr(expr.arguments.first())
-//                        append(")")
-//                    }
-//                    actions.add(Action(action))
-//                }
-//                else -> throw IllegalArgumentException("Can't store field of type $ta")
-//            }
-//        }
-//    }
 
     private fun assignClassName() {
         funcClassName = globalCodeIds.registerIdentifier(type.name)
@@ -529,9 +482,7 @@ public class FuncCodeGen(
 
         fun bindRecordFields(record: ConsRecord) {
             for (field in record.fields) {
-                if (!field.isImplicit) {
-                    fieldVars[field] = field.name
-                }
+                fieldVars[field] = field.name
             }
         }
 
@@ -751,12 +702,7 @@ public class FuncCodeGen(
                 }
 
                 is TlbParamExpression -> {
-                    val fieldName = fieldVars.keys.find {
-                        it.field.name == expression.name
-                    }?.let {
-                        fieldVars[it]
-                    } ?: throw UndefinedFieldException(expression.name)
-                    append(fieldName)
+                    append(expression.name)
                 }
 
                 else -> TODO("Expression `$expression` is not supported")
@@ -894,9 +840,12 @@ public class FuncCodeGen(
 
         fun declareRecordPack(appendable: Appendable) = appendable.apply {
             append("builder ")
-            append("${funcType.funcClassName}::${funcType.consEnumName[cons]}::store(builder cb, ")
-            declareRecordUnpackType(appendable)
-            append(" data")
+            append("${funcType.funcClassName}::${funcType.consEnumName[cons]}::store(builder cb")
+            if (fields.isNotEmpty()) {
+                append(", ")
+                declareRecordUnpackType(appendable)
+                append(" data")
+            }
             append(")")
         }
 
@@ -919,40 +868,7 @@ public class FuncCodeGen(
         }
     }
 
-    private data class Action(
-        val fixedSize: MinMaxSize,
-        val action: String
-    ) {
-        constructor(action: String) : this(MinMaxSize.IMPOSSIBLE, action)
-        constructor(fixedSize: MinMaxSize) : this(fixedSize, "")
-        constructor(builder: StringBuilder.() -> Unit) : this(buildString(builder))
 
-        override fun toString(): String {
-            return when {
-                fixedSize == MinMaxSize.IMPOSSIBLE -> action
-                fixedSize.value == 0L -> ""
-                fixedSize.minRefs == 0 -> "cs~skip_bits(${fixedSize.minBits})"
-                else -> "cs~slice_split(${fixedSize.minBits}, ${fixedSize.minRefs})"
-            }
-        }
-
-        public fun mayCombine(other: Action): Boolean {
-            if (fixedSize == MinMaxSize.IMPOSSIBLE || other.fixedSize == MinMaxSize.IMPOSSIBLE) {
-                return false
-            }
-            if (fixedSize.minBits > 0 && other.fixedSize.minBits > 0 && fixedSize.minRefs == 0 && other.fixedSize.minRefs == 0) {
-                return true
-            }
-            if (fixedSize.minRefs > 0 && other.fixedSize.minRefs > 0 && fixedSize.minBits == 0 && other.fixedSize.minBits == 0) {
-                return true
-            }
-            return false
-        }
-
-        public fun combine(other: Action): Action {
-            return Action(fixedSize + other.fixedSize)
-        }
-    }
 
     private fun List<Action>.combine() = buildList {
         var last: Action? = null
@@ -967,8 +883,8 @@ public class FuncCodeGen(
         last?.let { add(it) }
     }
 
-    companion object {
-        public val TLB_LIB = """;; This file is generated by TLB compiler. Do not edit it manually.
+    public companion object {
+        public val TLB_LIB: String = """;; This file is generated by TLB compiler. Do not edit it manually.
 #pragma version >=0.4.0;
 #include "stdlib.fc";
 
@@ -994,45 +910,4 @@ public class FuncCodeGen(
 }
 """.trimIndent()
     }
-}
-
-
-private fun TlbTypeExpression.canComputeSizeOf(): Boolean {
-    if (isNatural) {
-        return false
-    }
-    if (size.isFixed()) {
-        return size.minSize and 0xFF == 0
-    }
-    if (this is TlbTypeExpression.Apply) {
-        if (typeApplied == TlbCompiler.INT_TYPE ||
-            typeApplied == TlbCompiler.UINT_TYPE ||
-            typeApplied == TlbCompiler.NAT_WIDTH_TYPE ||
-            typeApplied == TlbCompiler.BITS_TYPE
-        ) {
-            return true
-        }
-        return arguments.firstOrNull()?.canComputeSizeOf() ?: false
-    }
-    return false
-}
-
-private fun TlbPrimitiveType.funcType() = when (this) {
-    TlbPrimitiveType.CELL -> "cell"
-    TlbPrimitiveType.TYPE -> "cont"
-
-    TlbPrimitiveType.SLICE,
-    TlbPrimitiveType.BITS,
-    TlbPrimitiveType.BITSTRING -> "slice"
-
-    TlbPrimitiveType.INTEGER,
-    TlbPrimitiveType.BOOL,
-    TlbPrimitiveType.ENUM,
-    TlbPrimitiveType.VARUINT16,
-    TlbPrimitiveType.INT32,
-    TlbPrimitiveType.UINT32,
-    TlbPrimitiveType.INT64,
-    TlbPrimitiveType.UINT64 -> "int"
-
-    TlbPrimitiveType.ANONYMOUS -> TODO("Anonymous type is not supported, YET.")
 }

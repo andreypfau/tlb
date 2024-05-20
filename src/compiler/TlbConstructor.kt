@@ -31,6 +31,7 @@ public data class TlbConstructor(
 
     public val isEnum: Boolean get() = explicitFields.isEmpty()
     public val isSimpleEnum: Boolean get() = isEnum && trueParams.isEmpty()
+    public val isConstant: Boolean get() = explicitFields.all { it.type.isConstant } && params.all { it.isConstant }
 
     public val isForward: Boolean =
         if (name.isNotEmpty() || !tag.isNullOrEmpty() || params.isNotEmpty() || fields.size != 1) {

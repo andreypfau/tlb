@@ -10,7 +10,7 @@ public class TlbType(
     public val isNatural: Boolean = false,
     public val isAnon: Boolean = false,
     public val intSign: Int = 0,
-    public val args: List<TlbType> = emptyList(),
+    public val args: List<TlbTypeExpression> = emptyList(),
     constructors: List<TlbConstructor> = emptyList(),
     isAnyBits: Boolean = false,
     size: MinMaxSize = MinMaxSize.IMPOSSIBLE,
@@ -41,11 +41,13 @@ public class TlbType(
 
     public val isInt: Boolean get() = intSign != 0
 
-    public val isEnum: Boolean get() = constructors.all {
+    public val isEnum: Boolean
+        get() = constructors.isNotEmpty() && constructors.all {
         it.isEnum
     }
 
-    public val isSimpleEnum: Boolean get() = constructors.all {
+    public val isSimpleEnum: Boolean
+        get() = constructors.isNotEmpty() && constructors.all {
         it.isSimpleEnum
     }
 
