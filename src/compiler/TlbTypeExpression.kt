@@ -223,6 +223,7 @@ public sealed interface TlbTypeExpression {
             MinMaxSize.IMPOSSIBLE
         }
         override val isAnyBits: Boolean get() = true
+        override val isConstant: Boolean get() = true
 
         override fun toString(): String = "^$expression"
     }

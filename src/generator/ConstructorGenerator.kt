@@ -3,6 +3,137 @@ package org.ton.tlb.generator
 import org.ton.tlb.MinMaxSize
 import org.ton.tlb.compiler.*
 import org.ton.tlb.isNullOrEmpty
+import org.ton.tlb.parser.TlbGrammar
+
+public class SchemeGenerator(
+    public val src: String,
+    public val compiler: TlbCompiler = TlbCompiler()
+) {
+    public fun generate(): String = buildString {
+        val ast = TlbGrammar().parseOrThrow(src)
+
+        ast.forEach {
+            compiler.compileConstructor(it)
+        }
+
+        val constantExpr = HashSet<TlbType>()
+        val newTy = compiler.types.map { (_, ty) ->
+            val newConstructors = ty.constructors.map { constructor ->
+                val newFields = constructor.fields.map { field ->
+                    if (!field.isExplicit) {
+                        field
+                    } else {
+                        val type = field.type
+                        val newType = if (type is TlbTypeExpression.Apply && type.arguments.isNotEmpty()) {
+                            val applyType = applyType(type.typeApplied, type.arguments)
+                            if (type.typeApplied != applyType) {
+                                constantExpr.add(applyType)
+                            }
+                            TlbTypeExpression.Apply(applyType)
+                        } else if (type is TlbTypeExpression.CellRef) {
+                            val refType = type.expression
+                            if (refType is TlbTypeExpression.Apply && refType.arguments.isNotEmpty()) {
+                                val applyType = applyType(refType.typeApplied, refType.arguments)
+                                if (refType.typeApplied != applyType) {
+                                    constantExpr.add(applyType)
+                                }
+                            }
+                            type
+                        } else {
+                            type
+                        }
+                        TlbField(field.name, newType, field.isImplicit, field.isConstraint)
+                    }
+                }
+                TlbConstructor(constructor.tag, constructor.name, constructor.typeName, newFields, constructor.params)
+            }
+            val newTy = TlbType(
+                ty.name,
+                ty.isProducesNatural,
+                ty.isNatural,
+                ty.isAnon,
+                ty.intSign,
+                ty.args,
+                newConstructors,
+                ty.isAnyBits,
+                ty.size,
+                ty.beginsWith,
+                ty.isFinal
+            )
+            newTy.recomputeSize()
+            newTy
+        }
+        constantExpr.forEach { ty ->
+            appendLine(TypeGenerator(ty).genDeclarations())
+        }
+        newTy.forEach { ty ->
+            if (ty.constructors.all { it.isConstant }) {
+                appendLine(TypeGenerator(ty).genDeclarations())
+            }
+        }
+    }
+
+    private fun applyType(type: TlbType, applyParams: List<TlbTypeExpression>): TlbType {
+        val newConstr = type.constructors.map { constr ->
+            remap(constr, applyParams)
+        }
+        val newType = TlbType(
+            type.name + "_" + applyParams.joinToString("_"),
+            type.isProducesNatural,
+            type.isNatural,
+            type.isAnon,
+            type.intSign,
+            applyParams,
+            newConstr,
+            type.isAnyBits,
+            type.size,
+            type.beginsWith,
+            type.isFinal
+        )
+        newType.recomputeSize()
+        return newType
+    }
+
+    private fun remap(constr: TlbConstructor, applyParams: List<TlbTypeExpression>): TlbConstructor {
+        val typeParams = constr.params
+        val newFields = constr.fields.map { field ->
+            remap(field, typeParams, applyParams)
+        }
+        return TlbConstructor(constr.tag, constr.name, constr.typeName, newFields, applyParams)
+    }
+
+    private fun remap(
+        field: TlbField,
+        typeParams: List<TlbTypeExpression>,
+        applyParams: List<TlbTypeExpression>
+    ): TlbField {
+        if (field.isExplicit) {
+            val newType = remap(field.type, typeParams, applyParams)
+            return TlbField(field.name, newType, field.isImplicit, field.isConstraint)
+        } else {
+            return field
+        }
+    }
+
+    private fun remap(
+        expr: TlbTypeExpression,
+        typeParams: List<TlbTypeExpression>,
+        applyParams: List<TlbTypeExpression>
+    ): TlbTypeExpression {
+        if (expr is TlbTypeExpression.Apply && expr.arguments.isNotEmpty()) {
+            val newArgs = expr.arguments.map {
+                remap(it, typeParams, applyParams)
+            }
+            return TlbTypeExpression.Apply(expr.typeApplied, newArgs)
+        }
+        if (expr is TlbTypeExpression.TypeParam) {
+            val index = typeParams.indexOf(expr)
+            val applyParam = applyParams[index]
+            return applyParam
+        }
+        return expr
+    }
+}
 
 public class TypeGenerator(
     public val type: TlbType,
